@@ -14,6 +14,12 @@ import app.pagedrop.data.local.database.Book
  */
 object KindlePageGenerator {
 
+    /** Formats the Kindle browser can actually download */
+    private val KINDLE_NATIVE_FORMATS = setOf("AZW3", "MOBI", "PRC", "TXT")
+
+    private fun isKindleCompatible(book: Book): Boolean =
+        book.format.uppercase() in KINDLE_NATIVE_FORMATS
+
     /**
      * Generate the full HTML page for the given list of books.
      * Handles empty state, single book, and multi-book views.
@@ -60,21 +66,24 @@ object KindlePageGenerator {
         sb.append("\n    <div class=\"status ready\">\n")
         sb.append("        1 book ready to sync\n")
         sb.append("    </div>\n\n")
-        appendBookCard(sb, book, showSyncButton = true)
+        appendBookCard(sb, book)
     }
 
     private fun appendMultiBookView(sb: StringBuilder, books: List<Book>) {
+        val syncable = books.count { isKindleCompatible(it) }
         sb.append("\n    <div class=\"status ready\">\n")
-        sb.append("        ${books.size} books ready to sync\n")
+        sb.append("        ${syncable} of ${books.size} books ready to sync\n")
         sb.append("    </div>\n\n")
         sb.append("    <div class=\"book-list-header\">Queued Books</div>\n\n")
         for (book in books) {
-            appendBookCard(sb, book, showSyncButton = true)
+            appendBookCard(sb, book)
         }
     }
 
-    private fun appendBookCard(sb: StringBuilder, book: Book, showSyncButton: Boolean) {
-        sb.append("    <div class=\"book\">\n")
+    private fun appendBookCard(sb: StringBuilder, book: Book) {
+        val compatible = isKindleCompatible(book)
+        val cardClass = if (compatible) "book" else "book book-incompatible"
+        sb.append("    <div class=\"$cardClass\">\n")
         sb.append("        <div class=\"book-title\">${escapeHtml(book.title)}</div>\n")
         sb.append("        <div class=\"book-author\">${escapeHtml(book.author)}</div>\n")
         sb.append("        <div class=\"book-meta\">\n")
@@ -82,8 +91,14 @@ object KindlePageGenerator {
         sb.append("            <span>&middot;</span>\n")
         sb.append("            <span>${formatFileSize(book.fileSize)}</span>\n")
         sb.append("        </div>\n")
-        if (showSyncButton) {
+        if (compatible) {
             sb.append("        <a href=\"/download/${book.uid}\" class=\"sync-btn\">&darr; SYNC</a>\n")
+        } else {
+            val fmt = book.format.uppercase()
+            sb.append("        <div class=\"compat-warning\">")
+            sb.append("&#9888; Cannot download $fmt via Kindle browser. ")
+            sb.append("Convert to MOBI on your phone first.")
+            sb.append("</div>\n")
         }
         sb.append("    </div>\n\n")
     }
@@ -304,6 +319,26 @@ object KindlePageGenerator {
 
         .success p {
             font-size: 18px;
+        }
+
+        /* Incompatible format card — grayed out */
+        .book-incompatible {
+            border-color: #999;
+            color: #888;
+        }
+
+        .book-incompatible .book-title,
+        .book-incompatible .book-author {
+            color: #999;
+        }
+
+        .compat-warning {
+            font-size: 13px;
+            color: #666;
+            font-style: italic;
+            padding: 10px 0 2px 0;
+            border-top: 1px dashed #bbb;
+            margin-top: 8px;
         }
 """
 }

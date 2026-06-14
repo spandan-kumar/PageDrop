@@ -137,8 +137,12 @@ fun BookScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // State for the EPUB bottom sheet
-    var pendingEpubUri by remember { mutableStateOf<Uri?>(null) }
+    // Formats the Kindle browser can download directly
+    val kindleNativeFormats = listOf("AZW3", "MOBI", "PRC", "TXT")
+
+    // State for the conversion bottom sheet (for non-Kindle-native formats)
+    var pendingConvertUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingConvertFormat by remember { mutableStateOf("") }
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -154,11 +158,12 @@ fun BookScreen(
             }
             val format = DefaultBookRepository.detectFormat(displayName ?: "")
 
-            if (format.equals("EPUB", ignoreCase = true)) {
-                // Show bottom sheet for EPUB
-                pendingEpubUri = it
+            if (format.uppercase() !in kindleNativeFormats) {
+                // Show bottom sheet for non-Kindle-native formats (PDF, EPUB, etc.)
+                pendingConvertUri = it
+                pendingConvertFormat = format.uppercase()
             } else {
-                // Non-EPUB: add directly
+                // Kindle-native format: add directly
                 viewModel.addBook(context, it)
             }
         }
@@ -172,26 +177,30 @@ fun BookScreen(
         }
     }
 
-    // EPUB format options bottom sheet
-    if (pendingEpubUri != null) {
-        EpubOptionsBottomSheet(
+    // Format options bottom sheet for non-Kindle-native formats
+    if (pendingConvertUri != null) {
+        FormatOptionsBottomSheet(
+            format = pendingConvertFormat,
             sheetState = bottomSheetState,
             onConvertToMobi = {
-                pendingEpubUri?.let { uri ->
+                pendingConvertUri?.let { uri ->
                     viewModel.addBookWithConversion(context, uri)
                 }
-                pendingEpubUri = null
+                pendingConvertUri = null
+                pendingConvertFormat = ""
                 scope.launch { bottomSheetState.hide() }
             },
             onSendAsIs = {
-                pendingEpubUri?.let { uri ->
+                pendingConvertUri?.let { uri ->
                     viewModel.addBook(context, uri)
                 }
-                pendingEpubUri = null
+                pendingConvertUri = null
+                pendingConvertFormat = ""
                 scope.launch { bottomSheetState.hide() }
             },
             onDismiss = {
-                pendingEpubUri = null
+                pendingConvertUri = null
+                pendingConvertFormat = ""
             },
         )
     }
@@ -221,17 +230,25 @@ fun BookScreen(
 }
 
 // ─────────────────────────────────────────────────────────────
-// EPUB Options Bottom Sheet
+// Format Options Bottom Sheet (for non-Kindle-native formats)
 // ─────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EpubOptionsBottomSheet(
+private fun FormatOptionsBottomSheet(
+    format: String,
     sheetState: androidx.compose.material3.SheetState,
     onConvertToMobi: () -> Unit,
     onSendAsIs: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val title = "$format File Detected"
+    val description = when (format) {
+        "PDF" -> "PDFs can\u2019t be downloaded via Kindle browser. Convert to MOBI for wireless transfer, or connect via USB."
+        "EPUB" -> "EPUBs aren\u2019t natively supported on older Kindles. You can convert to MOBI for compatibility."
+        else -> "$format files can\u2019t be downloaded via Kindle browser. Convert to MOBI for wireless transfer."
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -265,7 +282,7 @@ private fun EpubOptionsBottomSheet(
             Spacer(Modifier.height(20.dp))
 
             Text(
-                text = "EPUB File Detected",
+                text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -274,7 +291,7 @@ private fun EpubOptionsBottomSheet(
             Spacer(Modifier.height(12.dp))
 
             Text(
-                text = "EPUBs aren't natively supported on older Kindles. You can convert to MOBI for compatibility.",
+                text = description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -301,7 +318,7 @@ private fun EpubOptionsBottomSheet(
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        text = "Tip: For best results, add books in AZW3, MOBI, or PDF format",
+                        text = "Kindle browser only supports: AZW3, MOBI, PRC, TXT",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
                     )
@@ -569,7 +586,7 @@ private fun FormatInfoBanner(
             )
             Spacer(Modifier.width(10.dp))
             Text(
-                text = "For best Kindle compatibility, use AZW3, MOBI, or PDF formats. EPUBs will be auto-converted.",
+                text = "Kindle browser only downloads AZW3, MOBI, PRC \u0026 TXT. PDF/EPUB will need conversion.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.weight(1f),
@@ -809,18 +826,38 @@ private fun BookCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Format badge
+                    // Format badge — amber warning for non-Kindle-native formats
+                    val isKindleNative = book.format.uppercase() in listOf("AZW3", "MOBI", "PRC", "TXT")
+                    val badgeColor = if (isKindleNative)
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    else
+                        Color(0xFFFFF3E0) // amber/warning tint
+                    val badgeContentColor = if (isKindleNative)
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    else
+                        Color(0xFFE65100) // deep orange text
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        color = badgeColor,
+                        contentColor = badgeContentColor,
                     ) {
-                        Text(
-                            text = book.format.uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        )
+                        ) {
+                            Text(
+                                text = book.format.uppercase(),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            if (!isKindleNative) {
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "⚠",
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
                     }
 
                     Text(
