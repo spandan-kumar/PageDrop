@@ -146,6 +146,7 @@ class DefaultBookRepository @Inject constructor(
         // Remove from database
         bookDao.deleteBook(book)
         Log.d(TAG, "Deleted book from DB: ${book.title}")
+        Unit
     }
 
     /**

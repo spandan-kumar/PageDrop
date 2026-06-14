@@ -155,13 +155,7 @@ object EpubToMobiConverter {
                 }
             }
 
-            // Method 2: Look for cover in metadata guide
-            epub.guide?.referencesByType("cover")?.firstOrNull()?.let { ref ->
-                val data = ref.resource?.data
-                if (data != null && data.isNotEmpty()) {
-                    return data
-                }
-            }
+            // Method 1 covers the main case; no reliable guide API fallback
         } catch (e: Exception) {
             Log.w(TAG, "Could not extract cover image: ${e.message}")
         }

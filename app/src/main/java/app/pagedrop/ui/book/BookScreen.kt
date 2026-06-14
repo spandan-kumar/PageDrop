@@ -110,7 +110,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
-import app.pagedrop.data.BookRepository
+import app.pagedrop.data.DefaultBookRepository
 import app.pagedrop.data.local.database.Book
 import app.pagedrop.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
@@ -152,7 +152,7 @@ fun BookScreen(
                     if (nameIndex >= 0) cursor.getString(nameIndex) else null
                 } else null
             }
-            val format = BookRepository.detectFormat(displayName ?: "")
+            val format = DefaultBookRepository.detectFormat(displayName ?: "")
 
             if (format.equals("EPUB", ignoreCase = true)) {
                 // Show bottom sheet for EPUB
