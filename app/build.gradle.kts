@@ -122,7 +122,7 @@ dependencies {
     implementation("org.nanohttpd:nanohttpd:2.3.1")
 
     // EPUB parsing for EPUB → MOBI conversion
-    implementation("nl.siegmann.epublib:epublib-core:3.1") {
+    implementation("com.positiondev.epublib:epublib-core:3.1") {
         exclude(group = "org.slf4j")
         exclude(group = "xmlpull")
     }
