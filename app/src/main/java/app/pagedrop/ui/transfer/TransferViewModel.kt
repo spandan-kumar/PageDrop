@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import app.pagedrop.data.BookRepository
 import app.pagedrop.data.local.database.Book
 import app.pagedrop.transfer.hotspot.HotspotHelper
+import app.pagedrop.transfer.server.BookServer
 import app.pagedrop.transfer.service.TransferService
 import javax.inject.Inject
 
@@ -32,6 +33,7 @@ import javax.inject.Inject
 class TransferViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val hotspotHelper: HotspotHelper,
+    private val bookServer: BookServer,
 ) : ViewModel() {
 
     private val _serverRunning = MutableStateFlow(false)
@@ -53,9 +55,13 @@ class TransferViewModel @Inject constructor(
 
     fun setQueuedBooks(books: List<Book>) {
         _queuedBooks.value = books
+        // Push books to the actual HTTP server so Kindle can see them
+        bookServer.setQueuedBooks(books)
     }
 
     fun startServer(context: Context) {
+        // Set books on server BEFORE starting the service
+        bookServer.setQueuedBooks(_queuedBooks.value)
         TransferService.startService(context)
         _serverRunning.value = true
         refreshIpAddress()
