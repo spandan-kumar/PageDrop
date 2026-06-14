@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PageDrop</title>
+    <style>
+        /* === E-INK OPTIMIZED === */
+        /* No gradients, no shadows, no animations */
+        /* Max contrast: pure black on pure white */
+        /* Large tap targets for imprecise e-ink touch */
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Georgia, "Times New Roman", serif;
+            background: #fff;
+            color: #000;
+            max-width: 580px;
+            margin: 0 auto;
+            padding: 20px 16px;
+            line-height: 1.4;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #000;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .header .tagline {
+            font-size: 14px;
+            font-style: italic;
+            color: #333;
+        }
+
+        /* ── Status Bar ── */
+        .status {
+            text-align: center;
+            font-size: 15px;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #000;
+        }
+
+        .status.ready {
+            background: #f0f0f0;
+        }
+
+        .status.empty {
+            background: #fff;
+            color: #666;
+            font-style: italic;
+        }
+
+        /* ── Book Card ── */
+        .book {
+            border: 2px solid #000;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .book-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .book-author {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .book-meta {
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 14px;
+        }
+
+        .book-meta span {
+            margin-right: 8px;
+        }
+
+        /* ── Sync Button ── */
+        /* Extra large tap target for e-ink touchscreen */
+        .sync-btn {
+            display: block;
+            text-align: center;
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 18px 0;
+            border: none;
+            letter-spacing: 1px;
+        }
+
+        .sync-btn:visited {
+            color: #fff;
+        }
+
+        .sync-btn:active {
+            background: #333;
+        }
+
+        /* ── Sync All Button ── */
+        .sync-all {
+            display: block;
+            text-align: center;
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            font-size: 22px;
+            font-weight: bold;
+            padding: 22px 0;
+            margin-bottom: 20px;
+            border: 3px solid #000;
+            letter-spacing: 2px;
+        }
+
+        .sync-all:visited {
+            color: #fff;
+        }
+
+        /* ── Multiple Books List ── */
+        .book-list-header {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #999;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            padding-top: 16px;
+            border-top: 1px solid #999;
+            margin-top: 20px;
+        }
+
+        /* ── Empty State ── */
+        .empty-state {
+            text-align: center;
+            padding: 40px 16px;
+        }
+
+        .empty-state p {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .empty-state .hint {
+            font-size: 14px;
+            color: #888;
+            font-style: italic;
+        }
+
+        /* ── Success State ── */
+        .success {
+            text-align: center;
+            padding: 30px 16px;
+            border: 2px solid #000;
+            margin-bottom: 16px;
+        }
+
+        .success .checkmark {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .success p {
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================ -->
+    <!-- SINGLE BOOK READY — Primary use case         -->
+    <!-- User selected one book on phone, Kindle sees -->
+    <!-- just a big sync button.                       -->
+    <!-- ============================================ -->
+
+    <div class="header">
+        <h1>PageDrop</h1>
+        <div class="tagline">wireless book sync</div>
+    </div>
+
+    <div class="status ready">
+        1 book ready to sync
+    </div>
+
+    <div class="book">
+        <div class="book-title">The Great Gatsby</div>
+        <div class="book-author">F. Scott Fitzgerald</div>
+        <div class="book-meta">
+            <span>AZW3</span>
+            <span>&middot;</span>
+            <span>2.4 MB</span>
+        </div>
+        <a href="/download/1" class="sync-btn">&darr; SYNC</a>
+    </div>
+
+    <div class="footer">
+        PageDrop &middot; pagedrop.app
+    </div>
+
+
+    <!-- ============================================ -->
+    <!-- MULTIPLE BOOKS — When batch is queued         -->
+    <!-- Uncomment this section to see multi-book view -->
+    <!-- ============================================ -->
+    <!--
+    <div class="header">
+        <h1>PageDrop</h1>
+        <div class="tagline">wireless book sync</div>
+    </div>
+
+    <div class="status ready">
+        3 books ready to sync
+    </div>
+
+    <div class="book-list-header">Queued Books</div>
+
+    <div class="book">
+        <div class="book-title">The Great Gatsby</div>
+        <div class="book-author">F. Scott Fitzgerald</div>
+        <div class="book-meta">
+            <span>AZW3</span>
+            <span>&middot;</span>
+            <span>2.4 MB</span>
+        </div>
+        <a href="/download/1" class="sync-btn">&darr; SYNC</a>
+    </div>
+
+    <div class="book">
+        <div class="book-title">1984</div>
+        <div class="book-author">George Orwell</div>
+        <div class="book-meta">
+            <span>AZW3</span>
+            <span>&middot;</span>
+            <span>1.8 MB</span>
+        </div>
+        <a href="/download/2" class="sync-btn">&darr; SYNC</a>
+    </div>
+
+    <div class="book">
+        <div class="book-title">Pride and Prejudice</div>
+        <div class="book-author">Jane Austen</div>
+        <div class="book-meta">
+            <span>PDF</span>
+            <span>&middot;</span>
+            <span>3.1 MB</span>
+        </div>
+        <a href="/download/3" class="sync-btn">&darr; SYNC</a>
+    </div>
+
+    <div class="footer">
+        PageDrop &middot; pagedrop.app
+    </div>
+    -->
+
+
+    <!-- ============================================ -->
+    <!-- EMPTY STATE — Nothing queued from phone       -->
+    <!-- ============================================ -->
+    <!--
+    <div class="header">
+        <h1>PageDrop</h1>
+        <div class="tagline">wireless book sync</div>
+    </div>
+
+    <div class="empty-state">
+        <p>No books queued</p>
+        <div class="hint">Select a book on your phone to sync</div>
+    </div>
+
+    <div class="footer">
+        PageDrop &middot; pagedrop.app
+    </div>
+    -->
+
+
+    <!-- ============================================ -->
+    <!-- SUCCESS STATE — After sync completes          -->
+    <!-- ============================================ -->
+    <!--
+    <div class="header">
+        <h1>PageDrop</h1>
+        <div class="tagline">wireless book sync</div>
+    </div>
+
+    <div class="success">
+        <div class="checkmark">&#10003;</div>
+        <p>Synced successfully</p>
+    </div>
+
+    <div class="book">
+        <div class="book-title">The Great Gatsby</div>
+        <div class="book-author">F. Scott Fitzgerald</div>
+        <div class="book-meta">
+            <span>AZW3</span>
+            <span>&middot;</span>
+            <span>2.4 MB</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        PageDrop &middot; pagedrop.app
+    </div>
+    -->
+
+</body>
+</html>
