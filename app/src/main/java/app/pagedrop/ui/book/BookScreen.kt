@@ -243,10 +243,11 @@ private fun FormatOptionsBottomSheet(
     onDismiss: () -> Unit,
 ) {
     val title = "$format File Detected"
+    val canConvert = format == "EPUB"
     val description = when (format) {
-        "PDF" -> "PDFs can\u2019t be downloaded via Kindle browser. Convert to MOBI for wireless transfer, or connect via USB."
+        "PDF" -> "PDFs can\u2019t be downloaded via Kindle browser and can\u2019t be auto-converted. Use USB to sideload PDFs to your Kindle."
         "EPUB" -> "EPUBs aren\u2019t natively supported on older Kindles. You can convert to MOBI for compatibility."
-        else -> "$format files can\u2019t be downloaded via Kindle browser. Convert to MOBI for wireless transfer."
+        else -> "$format files can\u2019t be downloaded via Kindle browser."
     }
 
     ModalBottomSheet(
@@ -327,34 +328,36 @@ private fun FormatOptionsBottomSheet(
 
             Spacer(Modifier.height(28.dp))
 
-            // Primary action: Convert to MOBI
-            Button(
-                onClick = onConvertToMobi,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.SwapHoriz,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Convert to MOBI",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
+            // Primary action: Convert to MOBI (only for EPUB)
+            if (canConvert) {
+                Button(
+                    onClick = onConvertToMobi,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.SwapHoriz,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Convert to MOBI",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
             }
 
-            Spacer(Modifier.height(12.dp))
-
-            // Secondary action: Send as-is
+            // Secondary action: Send as-is (always available)
             OutlinedButton(
                 onClick = onSendAsIs,
                 modifier = Modifier
@@ -369,7 +372,7 @@ private fun FormatOptionsBottomSheet(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Send as-is",
+                    text = if (canConvert) "Send as-is" else "Add to library anyway",
                     style = MaterialTheme.typography.labelLarge,
                 )
             }

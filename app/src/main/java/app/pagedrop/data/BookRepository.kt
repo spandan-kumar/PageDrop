@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 import app.pagedrop.data.local.database.Book
 import app.pagedrop.data.local.database.BookDao
 import app.pagedrop.converter.EpubToMobiConverter
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import javax.inject.Inject
 
@@ -162,7 +163,16 @@ class DefaultBookRepository @Inject constructor(
 
         // Extract original filename
         val displayName = getDisplayName(context, uri) ?: "unknown_${System.currentTimeMillis()}.epub"
-        Log.d(TAG, "Converting EPUB: $displayName")
+        val format = detectFormat(displayName)
+        Log.d(TAG, "Converting $format: $displayName")
+
+        // Only EPUB can be converted to MOBI
+        if (format != "EPUB") {
+            throw IllegalStateException(
+                "Only EPUB files can be converted to MOBI. " +
+                "$format files must be transferred as-is or converted externally."
+            )
+        }
 
         // Copy EPUB to a temp file in the books directory
         val epubTempFile = File(booksDir, "_converting_${System.currentTimeMillis()}.epub")
@@ -178,8 +188,17 @@ class DefaultBookRepository @Inject constructor(
             val mobiFileName = "$baseName.mobi"
             val mobiFile = generateUniqueFile(booksDir, mobiFileName)
 
-            // Convert EPUB → MOBI
-            val success = EpubToMobiConverter.convert(epubTempFile, mobiFile)
+            // Convert EPUB → MOBI with a 2 minute timeout
+            val success = try {
+                withTimeout(120_000L) {
+                    EpubToMobiConverter.convert(epubTempFile, mobiFile)
+                }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                Log.e(TAG, "Conversion timed out after 120s for: $displayName")
+                if (mobiFile.exists()) mobiFile.delete()
+                throw IllegalStateException("Conversion timed out. The file may be too large or complex.")
+            }
+
             if (!success) {
                 throw IllegalStateException("EPUB to MOBI conversion failed for: $displayName")
             }
