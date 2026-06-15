@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import app.pagedrop.data.local.database.Book
 import app.pagedrop.data.local.database.BookDao
-import app.pagedrop.converter.EpubToMobiConverter
+import app.pagedrop.converter.BookConverter
 import kotlinx.coroutines.withTimeout
 import java.io.File
 import javax.inject.Inject
@@ -151,9 +151,10 @@ class DefaultBookRepository @Inject constructor(
     }
 
     /**
-     * Copies an EPUB from the given content [uri], converts it to MOBI using
-     * [EpubToMobiConverter], and adds the resulting MOBI file to the library.
-     * The intermediate EPUB copy is deleted after conversion.
+     * Copies a book file from the given content [uri], converts it to MOBI using
+     * [BookConverter], and adds the resulting MOBI file to the library.
+     * The intermediate source copy is deleted after conversion.
+     * Supports EPUB, PDF, and TXT formats.
      */
     override suspend fun convertAndAddBook(context: Context, uri: Uri): Book = withContext(Dispatchers.IO) {
         val booksDir = File(context.filesDir, BOOKS_DIR)
@@ -162,36 +163,37 @@ class DefaultBookRepository @Inject constructor(
         }
 
         // Extract original filename
-        val displayName = getDisplayName(context, uri) ?: "unknown_${System.currentTimeMillis()}.epub"
+        val displayName = getDisplayName(context, uri) ?: "unknown_${System.currentTimeMillis()}"
         val format = detectFormat(displayName)
         Log.d(TAG, "Converting $format: $displayName")
 
-        // Only EPUB can be converted to MOBI
-        if (format != "EPUB") {
+        // Verify we can convert this format
+        if (!BookConverter.canConvert(format)) {
             throw IllegalStateException(
-                "Only EPUB files can be converted to MOBI. " +
-                "$format files must be transferred as-is or converted externally."
+                "$format files cannot be converted to MOBI. " +
+                "Supported formats: EPUB, PDF, TXT."
             )
         }
 
-        // Copy EPUB to a temp file in the books directory
-        val epubTempFile = File(booksDir, "_converting_${System.currentTimeMillis()}.epub")
+        // Copy source file to a temp file in the books directory
+        val ext = displayName.substringAfterLast(".", "tmp").lowercase()
+        val tempFile = File(booksDir, "_converting_${System.currentTimeMillis()}.$ext")
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
-                epubTempFile.outputStream().use { output ->
+                tempFile.outputStream().use { output ->
                     input.copyTo(output)
                 }
             } ?: throw IllegalStateException("Could not open input stream for URI: $uri")
 
-            // Determine MOBI filename from the original EPUB name
+            // Determine MOBI filename from the original name
             val baseName = displayName.substringBeforeLast(".")
             val mobiFileName = "$baseName.mobi"
             val mobiFile = generateUniqueFile(booksDir, mobiFileName)
 
-            // Convert EPUB → MOBI with a 2 minute timeout
+            // Convert to MOBI with a 2 minute timeout
             val success = try {
                 withTimeout(120_000L) {
-                    EpubToMobiConverter.convert(epubTempFile, mobiFile)
+                    BookConverter.convertToMobi(context, tempFile, mobiFile)
                 }
             } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                 Log.e(TAG, "Conversion timed out after 120s for: $displayName")
@@ -200,7 +202,7 @@ class DefaultBookRepository @Inject constructor(
             }
 
             if (!success) {
-                throw IllegalStateException("EPUB to MOBI conversion failed for: $displayName")
+                throw IllegalStateException("$format to MOBI conversion failed for: $displayName")
             }
 
             val fileSize = mobiFile.length()
@@ -223,9 +225,9 @@ class DefaultBookRepository @Inject constructor(
 
             book.copy(uid = id.toInt())
         } finally {
-            // Clean up the temp EPUB copy
-            if (epubTempFile.exists()) {
-                epubTempFile.delete()
+            // Clean up the temp source copy
+            if (tempFile.exists()) {
+                tempFile.delete()
             }
         }
     }

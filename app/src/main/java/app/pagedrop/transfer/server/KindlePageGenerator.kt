@@ -17,6 +17,11 @@ object KindlePageGenerator {
     /** Formats the Kindle browser can actually download */
     private val KINDLE_NATIVE_FORMATS = setOf("AZW3", "MOBI", "PRC", "TXT")
 
+    /**
+     * All books in the queue should be MOBI (converted) or already-native.
+     * This check catches edge cases where an unsupported file slips through.
+     */
+
     private fun isKindleCompatible(book: Book): Boolean =
         book.format.uppercase() in KINDLE_NATIVE_FORMATS
 
@@ -97,7 +102,7 @@ object KindlePageGenerator {
             val fmt = book.format.uppercase()
             sb.append("        <div class=\"compat-warning\">")
             sb.append("&#9888; Cannot download $fmt via Kindle browser. ")
-            sb.append("Convert to MOBI on your phone first.")
+            sb.append("Convert to MOBI on your phone first (Library \u2192 select file \u2192 Convert).")
             sb.append("</div>\n")
         }
         sb.append("    </div>\n\n")

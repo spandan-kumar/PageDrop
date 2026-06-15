@@ -128,4 +128,7 @@ dependencies {
         exclude(group = "xmlpull")
     }
     implementation("org.slf4j:slf4j-android:1.7.36")
+
+    // PDF parsing for PDF → MOBI conversion
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 }

@@ -111,6 +111,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import app.pagedrop.data.DefaultBookRepository
+import app.pagedrop.converter.BookConverter
 import app.pagedrop.data.local.database.Book
 import app.pagedrop.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
@@ -137,10 +138,10 @@ fun BookScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Formats the Kindle browser can download directly
-    val kindleNativeFormats = listOf("AZW3", "MOBI", "PRC", "TXT")
+    // Formats the Kindle browser can download directly (no conversion needed)
+    val kindleNativeFormats = listOf("AZW3", "MOBI", "PRC")
 
-    // State for the conversion bottom sheet (for non-Kindle-native formats)
+    // State for the conversion bottom sheet (for convertible formats)
     var pendingConvertUri by remember { mutableStateOf<Uri?>(null) }
     var pendingConvertFormat by remember { mutableStateOf("") }
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -158,12 +159,15 @@ fun BookScreen(
             }
             val format = DefaultBookRepository.detectFormat(displayName ?: "")
 
-            if (format.uppercase() !in kindleNativeFormats) {
-                // Show bottom sheet for non-Kindle-native formats (PDF, EPUB, etc.)
+            if (format.uppercase() in kindleNativeFormats) {
+                // Kindle-native format: add directly, no dialog
+                viewModel.addBook(context, it)
+            } else if (BookConverter.canConvert(format)) {
+                // We can convert this format (EPUB, PDF, TXT) → show bottom sheet
                 pendingConvertUri = it
                 pendingConvertFormat = format.uppercase()
             } else {
-                // Kindle-native format: add directly
+                // Unknown format: add as-is
                 viewModel.addBook(context, it)
             }
         }
@@ -177,7 +181,7 @@ fun BookScreen(
         }
     }
 
-    // Format options bottom sheet for non-Kindle-native formats
+    // Format options bottom sheet for convertible formats (EPUB, PDF, TXT)
     if (pendingConvertUri != null) {
         FormatOptionsBottomSheet(
             format = pendingConvertFormat,
@@ -243,11 +247,12 @@ private fun FormatOptionsBottomSheet(
     onDismiss: () -> Unit,
 ) {
     val title = "$format File Detected"
-    val canConvert = format == "EPUB"
+    val canConvert = BookConverter.canConvert(format)
     val description = when (format) {
-        "PDF" -> "PDFs can\u2019t be downloaded via Kindle browser and can\u2019t be auto-converted. Use USB to sideload PDFs to your Kindle."
-        "EPUB" -> "EPUBs aren\u2019t natively supported on older Kindles. You can convert to MOBI for compatibility."
-        else -> "$format files can\u2019t be downloaded via Kindle browser."
+        "EPUB" -> "EPUBs aren\u2019t natively supported on older Kindles. Convert to MOBI for Kindle compatibility."
+        "PDF" -> "Extract text and convert to MOBI. Layout and images will not be preserved."
+        "TXT" -> "Convert to MOBI for better formatting on Kindle, or send the text file directly."
+        else -> "$format files may not be compatible with Kindle."
     }
 
     ModalBottomSheet(
