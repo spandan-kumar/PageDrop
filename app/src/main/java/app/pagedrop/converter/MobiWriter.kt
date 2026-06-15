@@ -217,7 +217,7 @@ class MobiWriter(
 
         dos.write(ByteArray(8))               //216
 
-        dos.writeInt(-1)                      //224
+        dos.writeInt(0)                       //224: Extra Record Data Flags = 0 (no trailing data)
         // End MOBI header
 
         dos.write(exthData)
