@@ -29,7 +29,7 @@ class MobiWriter(
         private const val PDB_HEADER_SIZE = 78
         private const val MOBI_HEADER_LENGTH = 232
         private const val PDB_EPOCH_OFFSET = 2082844800L
-        private const val COMPRESSION_PALMDOC = 2
+        private const val COMPRESSION_NONE = 1
 
         private val FLIS_RECORD = byteArrayOf(
             0x46, 0x4C, 0x49, 0x53,
@@ -49,10 +49,8 @@ class MobiWriter(
     }
 
     fun write(outputFile: File) {
-        // Compress text records using PalmDOC compression
         val textRecords = splitIntoRecords(htmlContent, RECORD_SIZE)
-        val compressedRecords = textRecords.map { compressPalmDoc(it) }
-        val textRecordCount = compressedRecords.size
+        val textRecordCount = textRecords.size
 
         val allImages = mutableListOf<ByteArray>()
         if (coverImage != null) allImages.add(coverImage)
@@ -81,7 +79,7 @@ class MobiWriter(
 
         val allRecordData = mutableListOf<ByteArray>()
         allRecordData.add(record0)
-        allRecordData.addAll(compressedRecords)
+        allRecordData.addAll(textRecords)
         allRecordData.addAll(allImages)
         allRecordData.add(FLIS_RECORD)
         allRecordData.add(fcisRecord)
@@ -158,7 +156,7 @@ class MobiWriter(
         val fullNameOffset = 16 + MOBI_HEADER_LENGTH + exthData.size
 
         // ── PalmDOC Header (16 bytes) ──
-        dos.writeShort(COMPRESSION_PALMDOC)   //  0: compression = 2 (PalmDOC)
+        dos.writeShort(COMPRESSION_NONE)      //  0: compression = 1 (none)
         dos.writeShort(0)                     //  2: unused
         dos.writeInt(textLength)              //  4: uncompressed text length
         dos.writeShort(textRecordCount)       //  8: record count
@@ -299,85 +297,7 @@ class MobiWriter(
         return baos.toByteArray()
     }
 
-    /**
-     * PalmDOC LZ77 compression.
-     * Algorithm from Calibre/MobileRead wiki:
-     *   - Literal bytes 0x01-0x08, 0x80-0xFF pass through (with 0x00 escaped)
-     *   - Bytes 0x09-0x7F are printable ASCII, stored as-is
-     *   - Back-references: 2-byte token encoding (distance, length) for matches
-     *   - Space+char optimization: 0x80|char for ' '+printable char
-     */
-    private fun compressPalmDoc(input: ByteArray): ByteArray {
-        if (input.isEmpty()) return input
 
-        val output = ByteArrayOutputStream(input.size)
-        var i = 0
-
-        while (i < input.size) {
-            // Try to find a back-reference match (LZ77)
-            if (i > 0) {
-                var bestLen = 0
-                var bestDist = 0
-                val maxDist = minOf(i, 2047)
-                val maxLen = minOf(input.size - i, 10)
-
-                if (maxLen >= 3) {
-                    var dist = 1
-                    while (dist <= maxDist) {
-                        var len = 0
-                        while (len < maxLen && input[i + len] == input[i - dist + len]) {
-                            len++
-                        }
-                        if (len >= 3 && len > bestLen) {
-                            bestLen = len
-                            bestDist = dist
-                            if (bestLen == maxLen) break
-                        }
-                        dist++
-                    }
-                }
-
-                if (bestLen >= 3) {
-                    // Encode as 2-byte back-reference
-                    // Byte 1: 0x80 | (distance >> 5) & 0x3F  (high bit set + 6 bits of distance)
-                    // Byte 2: ((distance & 0x1F) << 3) | (length - 3)
-                    val byte1 = 0x80 or ((bestDist shr 5) and 0x3F)
-                    val byte2 = ((bestDist and 0x1F) shl 3) or (bestLen - 3)
-                    output.write(byte1)
-                    output.write(byte2)
-                    i += bestLen
-                    continue
-                }
-            }
-
-            val b = input[i].toInt() and 0xFF
-
-            // Space + printable char optimization
-            if (b == 0x20 && i + 1 < input.size) {
-                val next = input[i + 1].toInt() and 0xFF
-                if (next in 0x40..0x7F) {
-                    output.write(0x80 or next)
-                    i += 2
-                    continue
-                }
-            }
-
-            // Literal byte
-            if (b == 0x00 || (b in 0x01..0x08) || b >= 0x80) {
-                // These bytes need to be escaped with a 0x01 prefix
-                // Actually in PalmDOC: 0x00 is literal, bytes 1-8 are copy-count
-                // We just output literal bytes with count=1
-                output.write(0x01)  // copy next 1 byte literally
-                output.write(b)
-            } else {
-                // 0x09-0x7F: printable ASCII, output directly
-                output.write(b)
-            }
-            i++
-        }
-
-        return output.toByteArray()
-    }
 
     private fun splitIntoRecords(data: ByteArray, chunkSize: Int): List<ByteArray> {
         val records = mutableListOf<ByteArray>()
