@@ -32,6 +32,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import app.pagedrop.data.BookRepository
 import app.pagedrop.data.local.database.Book
+import app.pagedrop.transfer.hotspot.HotspotHelper
+import app.pagedrop.transfer.server.BookServer
+import app.pagedrop.transfer.service.TransferService
 import app.pagedrop.ui.book.LibraryUiState.Error
 import app.pagedrop.ui.book.LibraryUiState.Loading
 import app.pagedrop.ui.book.LibraryUiState.Success
@@ -39,7 +42,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class BookViewModel @Inject constructor(
-    private val bookRepository: BookRepository
+    private val bookRepository: BookRepository,
+    private val hotspotHelper: HotspotHelper,
+    private val bookServer: BookServer,
 ) : ViewModel() {
 
     val uiState: StateFlow<LibraryUiState> = bookRepository
@@ -56,6 +61,22 @@ class BookViewModel @Inject constructor(
 
     private val _conversionError = MutableStateFlow<String?>(null)
     val conversionError: StateFlow<String?> = _conversionError.asStateFlow()
+
+    // ── Server state ──
+
+    private val _serverRunning = MutableStateFlow(false)
+    val serverRunning: StateFlow<Boolean> = _serverRunning.asStateFlow()
+
+    private val _serverUrl = MutableStateFlow<String?>(null)
+    val serverUrl: StateFlow<String?> = _serverUrl.asStateFlow()
+
+    companion object {
+        private const val SERVER_PORT = 8080
+    }
+
+    init {
+        refreshIpAddress()
+    }
 
     fun addBook(context: Context, uri: Uri) {
         viewModelScope.launch {
@@ -114,6 +135,38 @@ class BookViewModel @Inject constructor(
 
     fun clearQueue() {
         _transferQueue.update { emptyList() }
+    }
+
+    // ── Server control (merged from TransferViewModel) ──
+
+    fun startServer(context: Context) {
+        bookServer.setQueuedBooks(_transferQueue.value)
+        TransferService.startService(context)
+        _serverRunning.value = true
+        refreshIpAddress()
+    }
+
+    fun stopServer(context: Context) {
+        TransferService.stopService(context)
+        _serverRunning.value = false
+    }
+
+    fun toggleServer(context: Context) {
+        if (_serverRunning.value) stopServer(context) else startServer(context)
+    }
+
+    fun refreshIpAddress() {
+        val ip = hotspotHelper.getDeviceIpAddress()
+        _serverUrl.value = if (ip != null) {
+            hotspotHelper.getServerUrl(SERVER_PORT)
+        } else {
+            null
+        }
+    }
+
+    /** Push current queue to the HTTP server so Kindle can see them */
+    fun syncQueueToServer() {
+        bookServer.setQueuedBooks(_transferQueue.value)
     }
 }
 

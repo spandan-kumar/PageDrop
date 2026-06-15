@@ -17,25 +17,16 @@
 package app.pagedrop.ui
 
 import app.pagedrop.ui.book.BookScreen
-import app.pagedrop.ui.book.BookViewModel
-import app.pagedrop.ui.transfer.TransferScreen
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 
 @Composable
 fun MainNavigation() {
-
     val backStack = rememberNavBackStack(Main)
-
-    // Shared ViewModel so the transfer screen can access the queue
-    val bookViewModel: BookViewModel = hiltViewModel()
 
     NavDisplay(
         backStack = backStack,
@@ -43,17 +34,6 @@ fun MainNavigation() {
         entryProvider = entryProvider {
             entry<Main> {
                 BookScreen(
-                    onNavigateToTransfer = { backStack.add(TransferRoute) },
-                    modifier = Modifier.safeDrawingPadding(),
-                    viewModel = bookViewModel,
-                )
-            }
-
-            entry<TransferRoute> {
-                val queue by bookViewModel.transferQueue.collectAsStateWithLifecycle()
-                TransferScreen(
-                    queuedBooks = queue,
-                    onBack = { backStack.removeLastOrNull() },
                     modifier = Modifier.safeDrawingPadding(),
                 )
             }

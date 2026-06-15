@@ -23,16 +23,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.expandVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,46 +46,37 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.outlined.Circle
-import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.LibraryBooks
-import androidx.compose.material.icons.rounded.Send
-import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -98,26 +87,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation3.runtime.NavKey
 import app.pagedrop.data.DefaultBookRepository
 import app.pagedrop.converter.BookConverter
 import app.pagedrop.data.local.database.Book
-import app.pagedrop.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 // ─────────────────────────────────────────────────────────────
 // Public entry — wired to the ViewModel via Hilt
@@ -126,7 +109,6 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookScreen(
-    onNavigateToTransfer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BookViewModel = hiltViewModel(),
 ) {
@@ -134,6 +116,8 @@ fun BookScreen(
     val transferQueue by viewModel.transferQueue.collectAsStateWithLifecycle()
     val isConverting by viewModel.isConverting.collectAsStateWithLifecycle()
     val conversionError by viewModel.conversionError.collectAsStateWithLifecycle()
+    val serverRunning by viewModel.serverRunning.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -144,7 +128,11 @@ fun BookScreen(
     // State for the conversion bottom sheet (for convertible formats)
     var pendingConvertUri by remember { mutableStateOf<Uri?>(null) }
     var pendingConvertFormat by remember { mutableStateOf("") }
-    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val convertSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // State for the transfer bottom sheet
+    var showTransferSheet by remember { mutableStateOf(false) }
+    val transferSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -185,14 +173,14 @@ fun BookScreen(
     if (pendingConvertUri != null) {
         FormatOptionsBottomSheet(
             format = pendingConvertFormat,
-            sheetState = bottomSheetState,
+            sheetState = convertSheetState,
             onConvertToMobi = {
                 pendingConvertUri?.let { uri ->
                     viewModel.addBookWithConversion(context, uri)
                 }
                 pendingConvertUri = null
                 pendingConvertFormat = ""
-                scope.launch { bottomSheetState.hide() }
+                scope.launch { convertSheetState.hide() }
             },
             onSendAsIs = {
                 pendingConvertUri?.let { uri ->
@@ -200,12 +188,25 @@ fun BookScreen(
                 }
                 pendingConvertUri = null
                 pendingConvertFormat = ""
-                scope.launch { bottomSheetState.hide() }
+                scope.launch { convertSheetState.hide() }
             },
             onDismiss = {
                 pendingConvertUri = null
                 pendingConvertFormat = ""
             },
+        )
+    }
+
+    // Transfer bottom sheet
+    if (showTransferSheet) {
+        TransferBottomSheet(
+            sheetState = transferSheetState,
+            serverRunning = serverRunning,
+            serverUrl = serverUrl,
+            selectedBooks = transferQueue,
+            onToggleServer = { viewModel.toggleServer(context) },
+            onRefreshIp = { viewModel.refreshIpAddress() },
+            onDismiss = { showTransferSheet = false },
         )
     }
 
@@ -228,7 +229,10 @@ fun BookScreen(
         },
         onToggleQueued = viewModel::toggleQueued,
         onDeleteBook = viewModel::deleteBook,
-        onNavigateToTransfer = onNavigateToTransfer,
+        onOpenTransferSheet = {
+            viewModel.syncQueueToServer()
+            showTransferSheet = true
+        },
         modifier = modifier,
     )
 }
@@ -246,10 +250,9 @@ private fun FormatOptionsBottomSheet(
     onSendAsIs: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val title = "$format File Detected"
     val canConvert = BookConverter.canConvert(format)
     val description = when (format) {
-        "EPUB" -> "EPUBs aren\u2019t natively supported on older Kindles. Convert to MOBI for Kindle compatibility."
+        "EPUB" -> "EPUBs aren\u2019t natively supported on older Kindles. Convert to MOBI for compatibility."
         "PDF" -> "Extract text and convert to MOBI. Layout and images will not be preserved."
         "TXT" -> "Convert to MOBI for better formatting on Kindle, or send the text file directly."
         else -> "$format files may not be compatible with Kindle."
@@ -259,127 +262,198 @@ private fun FormatOptionsBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 36.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Header icon
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(56.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Icon(
-                        imageVector = Icons.Rounded.SwapHoriz,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(28.dp),
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(20.dp))
-
             Text(
-                text = title,
+                text = "$format File",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
 
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp),
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
 
-            // Tip card
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = "Kindle browser only supports: AZW3, MOBI, PRC, TXT",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(28.dp))
-
-            // Primary action: Convert to MOBI (only for EPUB)
+            // Primary action: Convert to MOBI
             if (canConvert) {
                 Button(
                     onClick = onConvertToMobi,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SwapHoriz,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Convert to MOBI",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    Text("Convert to MOBI")
                 }
 
                 Spacer(Modifier.height(12.dp))
             }
 
-            // Secondary action: Send as-is (always available)
+            // Secondary action: Send as-is
             OutlinedButton(
                 onClick = onSendAsIs,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Send,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                Text(if (canConvert) "Add as-is" else "Add to library")
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Transfer Bottom Sheet
+// ─────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransferBottomSheet(
+    sheetState: androidx.compose.material3.SheetState,
+    serverRunning: Boolean,
+    serverUrl: String?,
+    selectedBooks: List<Book>,
+    onToggleServer: () -> Unit,
+    onRefreshIp: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 36.dp),
+        ) {
+            // Status indicator
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val dotColor by animateColorAsState(
+                    targetValue = if (serverRunning)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.outline,
+                    label = "dot",
+                )
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(dotColor)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = if (canConvert) "Send as-is" else "Add to library anyway",
+                    text = if (serverRunning) "Running" else "Stopped",
                     style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Server URL
+            if (serverUrl != null) {
+                Text(
+                    text = serverUrl,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Text(
+                    text = "Enable WiFi hotspot first",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            // Toggle server button
+            FilledTonalButton(
+                onClick = onToggleServer,
+                enabled = serverUrl != null,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (serverRunning) "Stop Server" else "Start Server")
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Refresh IP
+            TextButton(onClick = onRefreshIp) {
+                Text("Refresh IP")
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            // Instructions
+            val steps = listOf(
+                "Connect your Kindle to the same WiFi or your hotspot",
+                "Open the browser on your Kindle",
+                "Navigate to the URL shown above",
+                "Tap SYNC on each book to download",
+            )
+            steps.forEachIndexed { index, step ->
+                Row(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        text = "${index + 1}.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(24.dp),
+                    )
+                    Text(
+                        text = step,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            // Selected books
+            if (selectedBooks.isNotEmpty()) {
+                Spacer(Modifier.height(20.dp))
+
+                Text(
+                    text = "Selected (${selectedBooks.size})",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                selectedBooks.forEach { book ->
+                    Text(
+                        text = book.title,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
+                }
             }
         }
     }
@@ -399,216 +473,111 @@ internal fun LibraryScreenContent(
     onAddBookClick: () -> Unit,
     onToggleQueued: (Book) -> Unit,
     onDeleteBook: (Book) -> Unit,
-    onNavigateToTransfer: () -> Unit,
+    onOpenTransferSheet: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    // Dismissible info banner state (session-only, not persisted)
-    var showInfoBanner by remember { mutableStateOf(true) }
-
-    Box(modifier = modifier) {
-        Scaffold(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-            topBar = {
-                LargeTopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.AutoStories,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                text = "PageDrop",
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.largeTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-            floatingActionButton = {
-                Column(horizontalAlignment = Alignment.End) {
-                    // "Send to Kindle" FAB — only visible when queue is non-empty
-                    AnimatedVisibility(
-                        visible = transferQueue.isNotEmpty(),
-                        enter = fadeIn() + slideInVertically { it },
-                        exit = fadeOut() + slideOutVertically { it },
-                    ) {
-                        ExtendedFloatingActionButton(
-                            onClick = onNavigateToTransfer,
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                            icon = {
-                                Icon(Icons.Rounded.Send, contentDescription = null)
-                            },
-                            text = {
-                                Text("Send to Kindle (${transferQueue.size})")
-                            },
+    Scaffold(
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            MediumTopAppBar(
+                title = {
+                    Text(
+                        text = "PageDrop",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                },
+                actions = {
+                    IconButton(onClick = onAddBookClick) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add book",
                         )
                     }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    // Primary add-book FAB
-                    FloatingActionButton(
-                        onClick = onAddBookClick,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add book")
-                    }
-                }
-            },
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            containerColor = MaterialTheme.colorScheme.background,
-        ) { innerPadding ->
-            when (uiState) {
-                is LibraryUiState.Loading -> {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-
-                is LibraryUiState.Error -> {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "Something went wrong.\n${uiState.throwable.localizedMessage}",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    }
-                }
-
-                is LibraryUiState.Success -> {
-                    if (uiState.data.isEmpty()) {
-                        EmptyLibraryState(
-                            onAddBookClick = onAddBookClick,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(innerPadding),
-                        )
-                    } else {
-                        BookList(
-                            books = uiState.data,
-                            transferQueue = transferQueue,
-                            showInfoBanner = showInfoBanner,
-                            onDismissInfoBanner = { showInfoBanner = false },
-                            onToggleQueued = onToggleQueued,
-                            onDelete = onDeleteBook,
-                            contentPadding = innerPadding,
-                        )
-                    }
-                }
-            }
-        }
-
-        // Conversion loading overlay
-        AnimatedVisibility(
-            visible = isConverting,
-            enter = fadeIn(),
-            exit = fadeOut(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.45f)),
-                contentAlignment = Alignment.Center,
+                },
+                colors = TopAppBarDefaults.mediumTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+                scrollBehavior = scrollBehavior,
+            )
+        },
+        floatingActionButton = {
+            // FAB only when books are selected
+            AnimatedVisibility(
+                visible = transferQueue.isNotEmpty(),
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
             ) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 6.dp,
-                    shadowElevation = 8.dp,
+                FloatingActionButton(
+                    onClick = onOpenTransferSheet,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 40.dp, vertical = 32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 3.dp,
-                            modifier = Modifier.size(44.dp),
-                        )
-                        Spacer(Modifier.height(20.dp))
-                        Text(
-                            text = "Converting to MOBI…",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = "This may take a moment",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Icon(Icons.Default.Send, contentDescription = "Transfer")
                 }
             }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
+
+        // Conversion progress at top
+        if (isConverting) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = innerPadding.calculateTopPadding()),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
         }
-    }
-}
 
-// ─────────────────────────────────────────────────────────────
-// Dismissible format info banner
-// ─────────────────────────────────────────────────────────────
+        when (uiState) {
+            is LibraryUiState.Loading -> {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            }
 
-@Composable
-private fun FormatInfoBanner(
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-        tonalElevation = 1.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "📚",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = "Kindle browser only downloads AZW3, MOBI, PRC \u0026 TXT. PDF/EPUB will need conversion.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(32.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "Dismiss",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                )
+            is LibraryUiState.Error -> {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "Something went wrong.\n${uiState.throwable.localizedMessage}",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+            }
+
+            is LibraryUiState.Success -> {
+                if (uiState.data.isEmpty()) {
+                    EmptyLibraryState(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                    )
+                } else {
+                    BookList(
+                        books = uiState.data,
+                        transferQueue = transferQueue,
+                        onToggleQueued = onToggleQueued,
+                        onDelete = onDeleteBook,
+                        contentPadding = innerPadding,
+                    )
+                }
             }
         }
     }
@@ -620,7 +589,6 @@ private fun FormatInfoBanner(
 
 @Composable
 private fun EmptyLibraryState(
-    onAddBookClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -629,50 +597,39 @@ private fun EmptyLibraryState(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
-            imageVector = Icons.Rounded.LibraryBooks,
+            imageVector = Icons.Outlined.MenuBook,
             contentDescription = null,
-            modifier = Modifier.size(96.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.outline,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
         Text(
-            text = "Your library is empty",
-            style = MaterialTheme.typography.headlineSmall,
+            text = "No books yet",
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
-            text = "Add your first book to get started.\nSupported formats: AZW3, MOBI, EPUB, PDF, TXT",
-            style = MaterialTheme.typography.bodyMedium,
+            text = "Tap + to add",
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(32.dp))
-        FilledTonalButton(onClick = onAddBookClick) {
-            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Add your first book")
-        }
     }
 }
 
 // ─────────────────────────────────────────────────────────────
-// Book list with swipe-to-dismiss
+// Book list (no swipe-to-dismiss)
 // ─────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BookList(
     books: List<Book>,
     transferQueue: List<Book>,
-    showInfoBanner: Boolean,
-    onDismissInfoBanner: () -> Unit,
     onToggleQueued: (Book) -> Unit,
     onDelete: (Book) -> Unit,
     contentPadding: PaddingValues,
 ) {
-    val scope = rememberCoroutineScope()
-
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -681,80 +638,24 @@ private fun BookList(
             start = 16.dp,
             end = 16.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Dismissible info banner at top of list
-        item(key = "format_info_banner") {
-            AnimatedVisibility(
-                visible = showInfoBanner,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut(),
-            ) {
-                FormatInfoBanner(
-                    onDismiss = onDismissInfoBanner,
-                    modifier = Modifier.padding(bottom = 6.dp),
-                )
-            }
-        }
-
         items(
             items = books,
             key = { it.uid },
         ) { book ->
             val isQueued = transferQueue.any { it.uid == book.uid }
-            val dismissState = rememberSwipeToDismissBoxState(
-                confirmValueChange = { value ->
-                    if (value == SwipeToDismissBoxValue.EndToStart) {
-                        onDelete(book)
-                        true
-                    } else false
-                }
-            )
 
-            SwipeToDismissBox(
-                state = dismissState,
+            BookCard(
+                book = book,
+                isQueued = isQueued,
+                onTap = { onToggleQueued(book) },
+                onDelete = { onDelete(book) },
                 modifier = Modifier.animateItem(
                     fadeInSpec = spring(stiffness = Spring.StiffnessMediumLow),
                     fadeOutSpec = spring(stiffness = Spring.StiffnessMediumLow),
                 ),
-                backgroundContent = {
-                    val color by animateColorAsState(
-                        targetValue = when (dismissState.targetValue) {
-                            SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
-                            else -> Color.Transparent
-                        },
-                        label = "swipe_bg"
-                    )
-                    val scale by animateFloatAsState(
-                        targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1f else 0.75f,
-                        label = "icon_scale"
-                    )
-
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(color)
-                            .padding(horizontal = 24.dp),
-                        contentAlignment = Alignment.CenterEnd,
-                    ) {
-                        Icon(
-                            Icons.Rounded.Delete,
-                            contentDescription = "Delete",
-                            modifier = Modifier.scale(scale),
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                    }
-                },
-                enableDismissFromStartToEnd = false,
-            ) {
-                BookCard(
-                    book = book,
-                    isQueued = isQueued,
-                    onTap = { onToggleQueued(book) },
-                    onDelete = { onDelete(book) },
-                )
-            }
+            )
         }
     }
 }
@@ -770,52 +671,44 @@ private fun BookCard(
     isQueued: Boolean,
     onTap: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    val containerColor by animateColorAsState(
-        targetValue = if (isQueued)
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-        else
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        label = "card_bg"
-    )
-
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .combinedClickable(
                 onClick = onTap,
                 onLongClick = { showMenu = true },
             ),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Selection indicator
-            Icon(
-                imageVector = if (isQueued) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
-                contentDescription = if (isQueued) "Selected" else "Not selected",
-                tint = if (isQueued) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(24.dp),
+            // Selection checkbox
+            Checkbox(
+                checked = isQueued,
+                onCheckedChange = { onTap() },
             )
 
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(8.dp))
 
             // Book info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = book.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -823,118 +716,61 @@ private fun BookCard(
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = book.author,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontStyle = FontStyle.Italic,
+                    style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Format badge — amber warning for non-Kindle-native formats
-                    val isKindleNative = book.format.uppercase() in listOf("AZW3", "MOBI", "PRC", "TXT")
-                    val badgeColor = if (isKindleNative)
-                        MaterialTheme.colorScheme.tertiaryContainer
-                    else
-                        Color(0xFFFFF3E0) // amber/warning tint
-                    val badgeContentColor = if (isKindleNative)
-                        MaterialTheme.colorScheme.onTertiaryContainer
-                    else
-                        Color(0xFFE65100) // deep orange text
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = badgeColor,
-                        contentColor = badgeContentColor,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        ) {
-                            Text(
-                                text = book.format.uppercase(),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            if (!isKindleNative) {
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = "⚠",
-                                    style = MaterialTheme.typography.labelSmall,
-                                )
-                            }
-                        }
-                    }
-
-                    Text(
-                        text = "·",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-
-                    // File size
-                    Text(
-                        text = Formatter.formatShortFileSize(context, book.fileSize),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    Text(
-                        text = "·",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-
-                    // Date added
-                    Text(
-                        text = formatDate(book.addedDate),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
 
-            // Context menu
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(20.dp),
+            Spacer(Modifier.width(8.dp))
+
+            // Format chip (outlined)
+            Box(
+                modifier = Modifier
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline,
+                        shape = RoundedCornerShape(6.dp),
                     )
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Delete") },
-                        onClick = {
-                            showMenu = false
-                            onDelete()
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Rounded.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        },
-                    )
-                }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    text = book.format.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            // File size
+            Text(
+                text = Formatter.formatShortFileSize(context, book.fileSize),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // Context menu (long press)
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Delete") },
+                    onClick = {
+                        showMenu = false
+                        onDelete()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Rounded.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                )
             }
         }
     }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────
-
-private fun formatDate(timestamp: Long): String {
-    val sdf = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-    return sdf.format(Date(timestamp))
 }
