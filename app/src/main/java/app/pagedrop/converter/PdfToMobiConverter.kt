@@ -48,8 +48,8 @@ object PdfToMobiConverter {
                 val numberOfPages = doc.numberOfPages
                 Log.d(TAG, "PDF has $numberOfPages pages")
 
-                // 2. Extract title from filename
-                val title = pdfFile.nameWithoutExtension
+                // 2. Extract title from output filename (not temp input file)
+                val title = mobiFile.nameWithoutExtension
 
                 // 3. Build HTML from extracted text
                 val htmlContent = buildHtmlFromPdf(title, doc, numberOfPages)
