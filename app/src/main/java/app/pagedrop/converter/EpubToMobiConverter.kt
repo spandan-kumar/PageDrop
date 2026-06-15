@@ -138,8 +138,14 @@ object EpubToMobiConverter {
         val noLink = LINK_REGEX.replace(noStyle, "")
         // Strip <script>...</script> tags
         val noScript = SCRIPT_REGEX.replace(noLink, "")
+        // Strip <header>...</header> tags (often contain repeated title/author)
+        val noHeader = HEADER_REGEX.replace(noScript, "")
+        // Strip <nav>...</nav> tags (table of contents, navigation)
+        val noNav = NAV_REGEX.replace(noHeader, "")
+        // Strip <footer>...</footer> tags
+        val noFooter = FOOTER_REGEX.replace(noNav, "")
 
-        return noScript.trim()
+        return noFooter.trim()
     }
 
     /**
@@ -182,6 +188,18 @@ object EpubToMobiConverter {
     )
     private val SCRIPT_REGEX = Regex(
         "<script[^>]*>.*?</script>",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+    )
+    private val HEADER_REGEX = Regex(
+        "<header[^>]*>.*?</header>",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+    )
+    private val NAV_REGEX = Regex(
+        "<nav[^>]*>.*?</nav>",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+    )
+    private val FOOTER_REGEX = Regex(
+        "<footer[^>]*>.*?</footer>",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
     )
 }
