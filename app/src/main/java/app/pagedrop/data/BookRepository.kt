@@ -170,7 +170,7 @@ class DefaultBookRepository @Inject constructor(
         // Verify we can convert this format
         if (!BookConverter.canConvert(format)) {
             throw IllegalStateException(
-                "$format files cannot be converted to MOBI. " +
+                "$format files cannot be converted. " +
                 "Supported formats: EPUB, PDF, TXT."
             )
         }
@@ -185,38 +185,37 @@ class DefaultBookRepository @Inject constructor(
                 }
             } ?: throw IllegalStateException("Could not open input stream for URI: $uri")
 
-            // Determine MOBI filename from the original name
+            // Output as .txt (Kindle can download and read .txt natively)
             val baseName = displayName.substringBeforeLast(".")
-            val mobiFileName = "$baseName.mobi"
-            val mobiFile = generateUniqueFile(booksDir, mobiFileName)
+            val outFileName = "$baseName.${BookConverter.outputExtension()}"
+            val outFile = generateUniqueFile(booksDir, outFileName)
 
-            // Convert to MOBI with a 2 minute timeout
+            // Convert with a 2 minute timeout
             val success = try {
                 withTimeout(120_000L) {
-                    BookConverter.convertToMobi(context, tempFile, mobiFile)
+                    BookConverter.convertToKindleFormat(context, tempFile, outFile)
                 }
             } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                 Log.e(TAG, "Conversion timed out after 120s for: $displayName")
-                if (mobiFile.exists()) mobiFile.delete()
+                if (outFile.exists()) outFile.delete()
                 throw IllegalStateException("Conversion timed out. The file may be too large or complex.")
             }
 
             if (!success) {
-                throw IllegalStateException("$format to MOBI conversion failed for: $displayName")
+                throw IllegalStateException("$format conversion failed for: $displayName")
             }
 
-            val fileSize = mobiFile.length()
-            Log.d(TAG, "Converted: $displayName → ${mobiFile.name} (${formatFileSize(fileSize)})")
+            val fileSize = outFile.length()
+            Log.d(TAG, "Converted: $displayName → ${outFile.name} (${formatFileSize(fileSize)})")
 
-            // Extract metadata from filename
             val (title, author) = parseBookNameAndAuthor(baseName)
 
             val book = Book(
                 title = title,
                 author = author,
-                fileName = mobiFile.name,
-                filePath = mobiFile.absolutePath,
-                format = "MOBI",
+                fileName = outFile.name,
+                filePath = outFile.absolutePath,
+                format = BookConverter.outputFormat(),
                 fileSize = fileSize
             )
 
