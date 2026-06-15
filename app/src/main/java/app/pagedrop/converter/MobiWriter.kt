@@ -212,13 +212,18 @@ class MobiWriter(
 
         dos.writeInt(fcisRecordIndex)         //200: FCIS
         dos.writeInt(1)                       //204
-        dos.writeInt(flisRecordIndex)         //208: FLIS
-        dos.writeInt(1)                       //212
+        dos.writeInt(flisRecordIndex)         //192: FLIS record number
+        dos.writeInt(1)                       //196: FLIS count
 
-        dos.write(ByteArray(8))               //216
+        dos.write(ByteArray(8))               //200: unknown 8 bytes
 
+        dos.writeInt(-1)                      //208: unknown (0xFFFFFFFF)
+        dos.writeInt(0)                       //212: unknown (0x00000000)
+        dos.writeInt(-1)                      //216: unknown (0xFFFFFFFF)
+        dos.writeInt(-1)                      //220: unknown (0xFFFFFFFF)
         dos.writeInt(0)                       //224: Extra Record Data Flags = 0 (no trailing data)
-        // End MOBI header
+        dos.writeInt(-1)                      //228: INDX record offset (0xFFFFFFFF = none)
+        // End MOBI header (232 bytes total)
 
         dos.write(exthData)
         dos.write(fullNameBytes)
