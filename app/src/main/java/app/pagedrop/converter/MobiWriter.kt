@@ -54,8 +54,8 @@ class MobiWriter(
         //   0        = header record (PalmDOC + MOBI + EXTH + title)
         //   1..N     = text records
         //   N+1..M   = image records (if any)
-        val firstImageIndex = if (allImages.isNotEmpty()) textRecordCount + 1 else -1
-        val firstNonBookIndex = if (allImages.isNotEmpty()) textRecordCount + 1 else textRecordCount + 1
+        val firstImageIndex = if (allImages.isNotEmpty()) textRecordCount + 1 else 0
+        val firstNonBookIndex = textRecordCount + 1
         val totalRecords = 1 + textRecordCount + allImages.size
 
         // --- Build Record 0 (header record) ---
@@ -93,11 +93,14 @@ class MobiWriter(
                 writePdbHeader(dos, totalRecords)
 
                 // 2. Record Offset Table
+                // Each entry: 4 bytes offset + 1 byte attributes + 3 bytes uniqueID
                 for (i in 0 until totalRecords) {
-                    dos.writeInt(offsets[i])                // offset (4 bytes)
-                    dos.writeInt(i and 0x00FFFFFF)          // attributes + uniqueID (4 bytes)
+                    dos.writeInt(offsets[i])        // offset (4 bytes)
+                    dos.writeByte(0)               // attributes (1 byte)
+                    dos.writeByte(0)               // uniqueID high byte
+                    dos.writeShort(i)              // uniqueID low 2 bytes
                 }
-                dos.writeShort(0) // 2 bytes padding
+                dos.writeShort(0) // 2 bytes padding after record list
 
                 // 3. All records
                 for (recordData in allRecordData) {
@@ -115,8 +118,9 @@ class MobiWriter(
      * Writes the 78-byte PDB header.
      */
     private fun writePdbHeader(dos: DataOutputStream, numRecords: Int) {
-        // name: 32 bytes, null-padded
-        val nameBytes = title.toByteArray(Charsets.UTF_8)
+        // name: 32 bytes, null-padded. Use only ASCII-safe chars.
+        val safeName = title.replace(Regex("[^\\x20-\\x7E]"), "")
+        val nameBytes = safeName.toByteArray(Charsets.US_ASCII)
         val nameField = ByteArray(32)
         System.arraycopy(nameBytes, 0, nameField, 0, minOf(nameBytes.size, 31))
         dos.write(nameField)
@@ -146,7 +150,7 @@ class MobiWriter(
         dos.write("MOBI".toByteArray(Charsets.US_ASCII))
 
         // uniqueIDseed: 4 bytes
-        dos.writeInt((System.currentTimeMillis() and 0xFFFFFFFFL).toInt())
+        dos.writeInt(2 * numRecords + 1)
         // nextRecordListID: 4 bytes
         dos.writeInt(0)
         // numRecords: 2 bytes
@@ -175,106 +179,104 @@ class MobiWriter(
         dos.writeInt(0)                     // currentPosition
 
         // ── MOBI Header ──
-        // We need to know fullNameOffset after building MOBI + EXTH.
-        // MOBI header starts at offset 16 of record 0.
-        // fullNameOffset = 16 (PalmDOC) + 232 (MOBI) + exthLength
         val exthData = buildExthHeader()
         val fullNameBytes = title.toByteArray(Charsets.UTF_8)
         val fullNameOffset = 16 + MOBI_HEADER_LENGTH + exthData.size
 
         // identifier: "MOBI"
-        dos.write("MOBI".toByteArray(Charsets.US_ASCII))
+        dos.write("MOBI".toByteArray(Charsets.US_ASCII))   // 4 bytes
         // headerLength: 232
-        dos.writeInt(MOBI_HEADER_LENGTH)
+        dos.writeInt(MOBI_HEADER_LENGTH)                    // 4 bytes
         // mobiType: 2 = Mobipocket Book
-        dos.writeInt(2)
+        dos.writeInt(2)                                     // 4 bytes
         // textEncoding: 65001 = UTF-8
-        dos.writeInt(65001)
+        dos.writeInt(65001)                                 // 4 bytes
         // uniqueID
-        dos.writeInt((System.nanoTime() and 0xFFFFFFFFL).toInt())
+        dos.writeInt((System.nanoTime() and 0xFFFFFFFFL).toInt()) // 4 bytes
         // fileVersion: 6
-        dos.writeInt(6)
+        dos.writeInt(6)                                     // 4 bytes
 
         // orthoIndex, inflectionIndex, indexNames, indexKeys = 0xFFFFFFFF
-        dos.writeInt(-1) // 0xFFFFFFFF
-        dos.writeInt(-1)
-        dos.writeInt(-1)
-        dos.writeInt(-1)
+        dos.writeInt(-1)  // orthoIndex                     // 4 bytes
+        dos.writeInt(-1)  // inflectionIndex                 // 4 bytes
+        dos.writeInt(-1)  // indexNames                      // 4 bytes
+        dos.writeInt(-1)  // indexKeys                       // 4 bytes
 
         // extraIndex0-5 = 0xFFFFFFFF each
-        for (i in 0 until 6) {
+        for (i in 0 until 6) {                               // 24 bytes
             dos.writeInt(-1)
         }
 
         // firstNonBookIndex
-        dos.writeInt(firstNonBookIndex)
-        // fullNameOffset
-        dos.writeInt(fullNameOffset)
+        dos.writeInt(firstNonBookIndex)                      // 4 bytes
+        // fullNameOffset (from start of record 0)
+        dos.writeInt(fullNameOffset)                          // 4 bytes
         // fullNameLength
-        dos.writeInt(fullNameBytes.size)
-        // locale: 9 = English
-        dos.writeInt(9)
+        dos.writeInt(fullNameBytes.size)                      // 4 bytes
+        // locale: 0x09 = English
+        dos.writeInt(0x09)                                    // 4 bytes
         // inputLanguage
-        dos.writeInt(0)
+        dos.writeInt(0)                                       // 4 bytes
         // outputLanguage
-        dos.writeInt(0)
+        dos.writeInt(0)                                       // 4 bytes
         // minVersion: 6
-        dos.writeInt(6)
+        dos.writeInt(6)                                       // 4 bytes
         // firstImageIndex
-        dos.writeInt(if (firstImageIndex > 0) firstImageIndex else -1)
+        dos.writeInt(if (firstImageIndex > 0) firstImageIndex else 0xFFFFFFFF.toInt()) // 4 bytes
 
-        // huffman fields (4 fields, all 0)
-        dos.writeInt(0)  // huffmanRecordOffset
-        dos.writeInt(0)  // huffmanRecordCount
-        dos.writeInt(0)  // huffmanTableOffset
-        dos.writeInt(0)  // huffmanTableLength
+        // huffman fields (4 ints, all 0)
+        dos.writeInt(0)  // huffmanRecordOffset               // 4 bytes
+        dos.writeInt(0)  // huffmanRecordCount                 // 4 bytes
+        dos.writeInt(0)  // huffmanTableOffset                 // 4 bytes
+        dos.writeInt(0)  // huffmanTableLength                 // 4 bytes
 
-        // exthFlags: 0x50 (has EXTH header)
-        dos.writeInt(0x50)
+        // exthFlags: bit 6 set = has EXTH header (0x40)
+        dos.writeInt(0x40)                                     // 4 bytes
 
         // 32 bytes unknown = 0
-        dos.write(ByteArray(32))
+        dos.write(ByteArray(32))                               // 32 bytes
 
-        // drmOffset, drmCount = 0xFFFFFFFF; drmSize, drmFlags = 0
-        dos.writeInt(-1)  // drmOffset
-        dos.writeInt(-1)  // drmCount
-        dos.writeInt(0)   // drmSize
-        dos.writeInt(0)   // drmFlags
+        // DRM fields
+        dos.writeInt(-1)  // drmOffset = 0xFFFFFFFF            // 4 bytes
+        dos.writeInt(0)   // drmCount = 0                      // 4 bytes
+        dos.writeInt(0)   // drmSize = 0                       // 4 bytes
+        dos.writeInt(0)   // drmFlags = 0                      // 4 bytes
 
-        // 8 bytes unknown = 0
-        dos.write(ByteArray(8))
+        // 8 bytes padding
+        dos.write(ByteArray(8))                                // 8 bytes
 
         // firstContentRecord: 2 bytes = 1
-        dos.writeShort(1)
+        dos.writeShort(1)                                      // 2 bytes
         // lastContentRecord: 2 bytes
-        dos.writeShort(textRecordCount)
+        dos.writeShort(textRecordCount)                        // 2 bytes
 
         // unknown: 4 bytes = 1
-        dos.writeInt(1)
+        dos.writeInt(1)                                        // 4 bytes
 
         // fcisRecordNumber, fcisRecordCount = 0xFFFFFFFF
-        dos.writeInt(-1)
-        dos.writeInt(-1)
+        dos.writeInt(-1)                                       // 4 bytes
+        dos.writeInt(-1)                                       // 4 bytes
         // flisRecordNumber, flisRecordCount = 0xFFFFFFFF
-        dos.writeInt(-1)
-        dos.writeInt(-1)
+        dos.writeInt(-1)                                       // 4 bytes
+        dos.writeInt(-1)                                       // 4 bytes
 
         // 8 bytes unknown = 0
-        dos.write(ByteArray(8))
+        dos.write(ByteArray(8))                                // 8 bytes
 
         // unknown = 0xFFFFFFFF
-        dos.writeInt(-1)
+        dos.writeInt(-1)                                       // 4 bytes
         // unknown = 0
-        dos.writeInt(0)
+        dos.writeInt(0)                                        // 4 bytes
         // unknown = 0xFFFFFFFF
-        dos.writeInt(-1)
+        dos.writeInt(-1)                                       // 4 bytes
         // unknown = 0xFFFFFFFF
-        dos.writeInt(-1)
+        dos.writeInt(-1)                                       // 4 bytes
 
         // extraRecordDataFlags = 0
-        dos.writeInt(0)
+        dos.writeInt(0)                                        // 4 bytes
         // indxRecordOffset = 0xFFFFFFFF
-        dos.writeInt(-1)
+        dos.writeInt(-1)                                       // 4 bytes
+        // Total MOBI header: 232 bytes ✓
 
         // ── EXTH Header ──
         dos.write(exthData)
@@ -286,8 +288,7 @@ class MobiWriter(
 
         // Pad to 4-byte boundary
         val raw = baos.toByteArray()
-        val padded = padTo4(raw)
-        return padded
+        return padTo4(raw)
     }
 
     /**
@@ -298,10 +299,10 @@ class MobiWriter(
         val baos = ByteArrayOutputStream(256)
         val dos = DataOutputStream(baos)
 
-        // Build the individual EXTH records first
+        // Build the individual EXTH records
         val records = mutableListOf<ByteArray>()
-        records.add(buildExthRecord(100, author.toByteArray(Charsets.UTF_8)))
-        records.add(buildExthRecord(503, title.toByteArray(Charsets.UTF_8)))
+        records.add(buildExthRecord(100, author.toByteArray(Charsets.UTF_8)))  // author
+        records.add(buildExthRecord(503, title.toByteArray(Charsets.UTF_8)))   // updated title
 
         val recordsData = ByteArrayOutputStream()
         for (record in records) {
@@ -316,7 +317,7 @@ class MobiWriter(
 
         // identifier: "EXTH"
         dos.write("EXTH".toByteArray(Charsets.US_ASCII))
-        // headerLength
+        // headerLength (including padding)
         dos.writeInt(paddedSize)
         // recordCount
         dos.writeInt(records.size)

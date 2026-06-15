@@ -25,10 +25,11 @@ object BookConverter {
      * @return true if conversion succeeded, false if the format is unsupported or conversion fails
      */
     suspend fun convertToMobi(context: Context, inputFile: File, outputFile: File): Boolean {
+        val fallbackTitle = outputFile.nameWithoutExtension
         return when (inputFile.extension.lowercase()) {
-            "epub" -> EpubToMobiConverter.convert(inputFile, outputFile)
+            "epub" -> EpubToMobiConverter.convert(inputFile, outputFile, fallbackTitle = fallbackTitle)
             "pdf" -> PdfToMobiConverter.convert(context, inputFile, outputFile)
-            "txt" -> TxtToMobiConverter.convert(inputFile, outputFile, title = inputFile.nameWithoutExtension)
+            "txt" -> TxtToMobiConverter.convert(inputFile, outputFile, title = fallbackTitle)
             else -> false // unsupported format
         }
     }

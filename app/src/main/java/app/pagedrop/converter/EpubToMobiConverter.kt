@@ -29,7 +29,7 @@ object EpubToMobiConverter {
      * @param mobiFile target MOBI file (will be created)
      * @return true if conversion succeeded
      */
-    suspend fun convert(epubFile: File, mobiFile: File): Boolean = withContext(Dispatchers.IO) {
+    suspend fun convert(epubFile: File, mobiFile: File, fallbackTitle: String? = null): Boolean = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Starting conversion: ${epubFile.name} → ${mobiFile.name}")
 
@@ -41,7 +41,8 @@ object EpubToMobiConverter {
             // 2. Extract metadata
             val metadata = epub.metadata
             val title = metadata.firstTitle?.takeIf { it.isNotBlank() }
-                ?: epubFile.nameWithoutExtension
+                ?: fallbackTitle
+                ?: mobiFile.nameWithoutExtension
             val author = metadata.authors.firstOrNull()?.let { a ->
                 buildString {
                     if (a.firstname?.isNotBlank() == true) append(a.firstname)
