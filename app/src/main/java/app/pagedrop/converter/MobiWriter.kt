@@ -29,7 +29,7 @@ class MobiWriter(
         private const val PDB_HEADER_SIZE = 78
         private const val MOBI_HEADER_LENGTH = 232
         private const val PDB_EPOCH_OFFSET = 2082844800L
-        private const val COMPRESSION_NONE = 1
+        private const val COMPRESSION_PALMDOC = 2
 
         private val FLIS_RECORD = byteArrayOf(
             0x46, 0x4C, 0x49, 0x53,
@@ -50,7 +50,8 @@ class MobiWriter(
 
     fun write(outputFile: File) {
         val textRecords = splitIntoRecords(htmlContent, RECORD_SIZE)
-        val textRecordCount = textRecords.size
+        val compressedRecords = textRecords.map { compressPalmDoc(it) }
+        val textRecordCount = compressedRecords.size
 
         val allImages = mutableListOf<ByteArray>()
         if (coverImage != null) allImages.add(coverImage)
@@ -79,7 +80,7 @@ class MobiWriter(
 
         val allRecordData = mutableListOf<ByteArray>()
         allRecordData.add(record0)
-        allRecordData.addAll(textRecords)
+        allRecordData.addAll(compressedRecords)
         allRecordData.addAll(allImages)
         allRecordData.add(FLIS_RECORD)
         allRecordData.add(fcisRecord)
@@ -156,7 +157,7 @@ class MobiWriter(
         val fullNameOffset = 16 + MOBI_HEADER_LENGTH + exthData.size
 
         // ── PalmDOC Header (16 bytes) ──
-        dos.writeShort(COMPRESSION_NONE)      //  0: compression = 1 (none)
+        dos.writeShort(COMPRESSION_PALMDOC)   //  0: compression = 2 (PalmDOC)
         dos.writeShort(0)                     //  2: unused
         dos.writeInt(textLength)              //  4: uncompressed text length
         dos.writeShort(textRecordCount)       //  8: record count
@@ -298,6 +299,91 @@ class MobiWriter(
     }
 
 
+    /**
+     * PalmDOC LZ77 compression.
+     * Ported from Calibre's py_compress_doc (src/calibre/ebooks/compression/palmdoc.py).
+     *
+     * Byte ranges in compressed stream:
+     *   0x00:        literal null byte
+     *   0x01-0x08:   next N bytes are literals (copy N bytes directly)
+     *   0x09-0x7F:   literal byte (copy directly)
+     *   0x80-0xBF:   2-byte LZ77 back-reference (11-bit distance + 3-bit length)
+     *   0xC0-0xFF:   space + (byte XOR 0x80)
+     */
+    private fun compressPalmDoc(input: ByteArray): ByteArray {
+        if (input.isEmpty()) return input
+
+        val output = ByteArrayOutputStream(input.size)
+        var i = 0
+        val ldata = input.size
+
+        while (i < ldata) {
+            // Try LZ77 back-reference (only if enough data behind and ahead)
+            if (i > 10 && (ldata - i) > 10) {
+                var matchOffset = -1
+                var matchLen = 0
+
+                // Search for longest match, from length 10 down to 3
+                for (j in 10 downTo 3) {
+                    val chunk = input.copyOfRange(i, i + j)
+                    val found = lastIndexOf(input, chunk, 0, i)
+                    if (found >= 0 && (i - found) <= 2047) {
+                        matchOffset = found
+                        matchLen = j
+                        break
+                    }
+                }
+
+                if (matchOffset >= 0) {
+                    val dist = i - matchOffset
+                    // Encode as 2-byte big-endian value:
+                    // 0x8000 + ((distance << 3) & 0x3FF8) + (length - 3)
+                    val code = 0x8000 + ((dist shl 3) and 0x3FF8) + (matchLen - 3)
+                    output.write((code shr 8) and 0xFF)
+                    output.write(code and 0xFF)
+                    i += matchLen
+                    continue
+                }
+            }
+
+            val ch = input[i].toInt() and 0xFF
+
+            // Space + printable char optimization (0xC0-0xFF range)
+            if (ch == 0x20 && i + 1 < ldata) {
+                val next = input[i + 1].toInt() and 0xFF
+                if (next in 0x40..0x7F) {
+                    output.write(next xor 0x80)  // 0xC0-0xFF range
+                    i += 2
+                    continue
+                }
+            }
+
+            // Bytes that need escaping: 0x00, 0x01-0x08, 0x80-0xFF
+            if (ch == 0x00 || ch in 0x01..0x08 || ch >= 0x80) {
+                // Use literal count prefix: 0x01 means "next 1 byte is literal"
+                output.write(0x01)
+                output.write(ch)
+            } else {
+                // 0x09-0x7F: safe literal, output directly
+                output.write(ch)
+            }
+            i++
+        }
+
+        return output.toByteArray()
+    }
+
+    /** Find last occurrence of pattern in data[start..end). Returns -1 if not found. */
+    private fun lastIndexOf(data: ByteArray, pattern: ByteArray, start: Int, end: Int): Int {
+        if (pattern.isEmpty() || end - start < pattern.size) return -1
+        outer@ for (pos in (end - pattern.size) downTo start) {
+            for (k in pattern.indices) {
+                if (data[pos + k] != pattern[k]) continue@outer
+            }
+            return pos
+        }
+        return -1
+    }
 
     private fun splitIntoRecords(data: ByteArray, chunkSize: Int): List<ByteArray> {
         val records = mutableListOf<ByteArray>()
