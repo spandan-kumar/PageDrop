@@ -1,58 +1,44 @@
 package app.pagedrop.converter
 
 import android.content.Context
-import android.util.Log
 import java.io.File
 
 /**
- * Unified entry point for converting any supported ebook format to a Kindle-compatible format.
+ * Unified entry point for converting any supported ebook format to MOBI.
  *
- * Converts to plain text (.txt) which is natively supported by Kindle for both
- * browser download and reading. This avoids the complexity of MOBI binary generation.
- *
- * Supported: EPUB → TXT, PDF → TXT, TXT → TXT (passthrough copy)
+ * Auto-detects the input format from the file extension and delegates
+ * to the appropriate converter:
+ * - EPUB → [EpubToMobiConverter]
+ * - PDF  → [PdfToMobiConverter]
+ * - TXT  → [TxtToMobiConverter]
  */
 object BookConverter {
 
-    private const val TAG = "BookConverter"
     private val CONVERTIBLE_FORMATS = listOf("EPUB", "PDF", "TXT")
 
     /**
-     * Converts the given input file to a Kindle-compatible text file.
+     * Converts the given input file to MOBI format.
      *
      * @param context Android context (needed for PDF conversion)
      * @param inputFile source file (EPUB, PDF, or TXT)
-     * @param outputFile target file (will be created as .txt)
-     * @return true if conversion succeeded
+     * @param outputFile target MOBI file (will be created)
+     * @return true if conversion succeeded, false if the format is unsupported or conversion fails
      */
-    suspend fun convertToKindleFormat(context: Context, inputFile: File, outputFile: File): Boolean {
-        val format = inputFile.extension.lowercase()
-        Log.d(TAG, "Converting $format → txt: ${inputFile.name} → ${outputFile.name}")
-
-        return when (format) {
-            "epub" -> EpubToTextConverter.convert(inputFile, outputFile)
-            "pdf" -> PdfToTextConverter.convert(context, inputFile, outputFile)
-            "txt" -> {
-                // Just copy the file
-                inputFile.copyTo(outputFile, overwrite = true)
-                true
-            }
-            else -> false
+    suspend fun convertToMobi(context: Context, inputFile: File, outputFile: File): Boolean {
+        val fallbackTitle = outputFile.nameWithoutExtension
+        return when (inputFile.extension.lowercase()) {
+            "epub" -> EpubToMobiConverter.convert(inputFile, outputFile, fallbackTitle = fallbackTitle)
+            "pdf" -> PdfToMobiConverter.convert(context, inputFile, outputFile)
+            "txt" -> TxtToMobiConverter.convert(inputFile, outputFile, title = fallbackTitle)
+            else -> false // unsupported format
         }
     }
 
     /**
-     * Checks whether the given format string can be converted.
+     * Checks whether the given format string can be converted to MOBI.
+     *
+     * @param format the file format (e.g. "EPUB", "pdf", "TXT")
+     * @return true if we have a converter for this format
      */
     fun canConvert(format: String): Boolean = format.uppercase() in CONVERTIBLE_FORMATS
-
-    /**
-     * Returns the output format for conversion.
-     */
-    fun outputFormat(): String = "TXT"
-
-    /**
-     * Returns the output extension for conversion.
-     */
-    fun outputExtension(): String = "txt"
 }

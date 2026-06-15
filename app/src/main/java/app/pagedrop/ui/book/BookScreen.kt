@@ -252,9 +252,9 @@ private fun FormatOptionsBottomSheet(
 ) {
     val canConvert = BookConverter.canConvert(format)
     val description = when (format) {
-        "EPUB" -> "Extract text for Kindle. Chapter formatting may be simplified."
-        "PDF" -> "Extract text for Kindle. Layout and images will not be preserved."
-        "TXT" -> "Text files work on Kindle directly. Convert to clean up formatting, or add as-is."
+        "EPUB" -> "EPUBs aren\u2019t natively supported on older Kindles. Convert to MOBI for compatibility."
+        "PDF" -> "Extract text and convert to MOBI. Layout and images will not be preserved."
+        "TXT" -> "Convert to MOBI for better formatting on Kindle, or send the text file directly."
         else -> "$format files may not be compatible with Kindle."
     }
 
@@ -285,7 +285,7 @@ private fun FormatOptionsBottomSheet(
 
             Spacer(Modifier.height(24.dp))
 
-            // Primary action: Convert
+            // Primary action: Convert to MOBI
             if (canConvert) {
                 Button(
                     onClick = onConvertToMobi,
@@ -294,7 +294,7 @@ private fun FormatOptionsBottomSheet(
                         .height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Convert & Add")
+                    Text("Convert to MOBI")
                 }
 
                 Spacer(Modifier.height(12.dp))
