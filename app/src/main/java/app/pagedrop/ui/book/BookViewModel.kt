@@ -31,10 +31,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import app.pagedrop.data.BookRepository
+import app.pagedrop.data.KindleSettings
 import app.pagedrop.data.local.database.Book
-import app.pagedrop.transfer.hotspot.HotspotHelper
-import app.pagedrop.transfer.server.BookServer
-import app.pagedrop.transfer.service.TransferService
+import app.pagedrop.transfer.sftp.KindleSftpClient
 import app.pagedrop.ui.book.LibraryUiState.Error
 import app.pagedrop.ui.book.LibraryUiState.Loading
 import app.pagedrop.ui.book.LibraryUiState.Success
@@ -43,8 +42,7 @@ import javax.inject.Inject
 @HiltViewModel
 class BookViewModel @Inject constructor(
     private val bookRepository: BookRepository,
-    private val hotspotHelper: HotspotHelper,
-    private val bookServer: BookServer,
+    private val kindleSettings: KindleSettings,
 ) : ViewModel() {
 
     val uiState: StateFlow<LibraryUiState> = bookRepository
@@ -62,21 +60,45 @@ class BookViewModel @Inject constructor(
     private val _conversionError = MutableStateFlow<String?>(null)
     val conversionError: StateFlow<String?> = _conversionError.asStateFlow()
 
-    // ── Server state ──
+    // ── SFTP Transfer State ──
 
-    private val _serverRunning = MutableStateFlow(false)
-    val serverRunning: StateFlow<Boolean> = _serverRunning.asStateFlow()
-
-    private val _serverUrl = MutableStateFlow<String?>(null)
-    val serverUrl: StateFlow<String?> = _serverUrl.asStateFlow()
-
-    companion object {
-        private const val SERVER_PORT = 8080
+    sealed interface TransferState {
+        object Idle : TransferState
+        data class Progress(val current: Int, val total: Int, val message: String) : TransferState
+        object Success : TransferState
+        data class Error(val message: String) : TransferState
     }
 
-    init {
-        refreshIpAddress()
-    }
+    private val _transferState = MutableStateFlow<TransferState>(TransferState.Idle)
+    val transferState: StateFlow<TransferState> = _transferState.asStateFlow()
+
+    // ── Connection Test State ──
+
+    private val _isTestingConnection = MutableStateFlow(false)
+    val isTestingConnection: StateFlow<Boolean> = _isTestingConnection.asStateFlow()
+
+    private val _connectionTestResult = MutableStateFlow<Result<Unit>?>(null)
+    val connectionTestResult: StateFlow<Result<Unit>?> = _connectionTestResult.asStateFlow()
+
+    // ── Settings States (backed by KindleSettings SharedPreferences) ──
+
+    private val _kindleIp = MutableStateFlow(kindleSettings.host)
+    val kindleIp: StateFlow<String> = _kindleIp.asStateFlow()
+
+    private val _kindlePort = MutableStateFlow(kindleSettings.port.toString())
+    val kindlePort: StateFlow<String> = _kindlePort.asStateFlow()
+
+    private val _kindleUsername = MutableStateFlow(kindleSettings.username)
+    val kindleUsername: StateFlow<String> = _kindleUsername.asStateFlow()
+
+    private val _kindlePassword = MutableStateFlow(kindleSettings.password)
+    val kindlePassword: StateFlow<String> = _kindlePassword.asStateFlow()
+
+    private val _kindleDirectory = MutableStateFlow(kindleSettings.targetDirectory)
+    val kindleDirectory: StateFlow<String> = _kindleDirectory.asStateFlow()
+
+    private val _triggerRescan = MutableStateFlow(kindleSettings.triggerRescan)
+    val triggerRescan: StateFlow<Boolean> = _triggerRescan.asStateFlow()
 
     fun addBook(context: Context, uri: Uri) {
         viewModelScope.launch {
@@ -137,36 +159,106 @@ class BookViewModel @Inject constructor(
         _transferQueue.update { emptyList() }
     }
 
-    // ── Server control (merged from TransferViewModel) ──
+    // ── Connection Settings Updates ──
 
-    fun startServer(context: Context) {
-        bookServer.setQueuedBooks(_transferQueue.value)
-        TransferService.startService(context)
-        _serverRunning.value = true
-        refreshIpAddress()
+    fun updateKindleIp(value: String) {
+        _kindleIp.value = value
+        kindleSettings.host = value
     }
 
-    fun stopServer(context: Context) {
-        TransferService.stopService(context)
-        _serverRunning.value = false
+    fun updateKindlePort(value: String) {
+        _kindlePort.value = value
+        val portVal = value.toIntOrNull() ?: 22
+        kindleSettings.port = portVal
     }
 
-    fun toggleServer(context: Context) {
-        if (_serverRunning.value) stopServer(context) else startServer(context)
+    fun updateKindleUsername(value: String) {
+        _kindleUsername.value = value
+        kindleSettings.username = value
     }
 
-    fun refreshIpAddress() {
-        val ip = hotspotHelper.getDeviceIpAddress()
-        _serverUrl.value = if (ip != null) {
-            hotspotHelper.getServerUrl(SERVER_PORT)
-        } else {
-            null
+    fun updateKindlePassword(value: String) {
+        _kindlePassword.value = value
+        kindleSettings.password = value
+    }
+
+    fun updateKindleDirectory(value: String) {
+        _kindleDirectory.value = value
+        kindleSettings.targetDirectory = value
+    }
+
+    fun updateTriggerRescan(value: Boolean) {
+        _triggerRescan.value = value
+        kindleSettings.triggerRescan = value
+    }
+
+    // ── SFTP Connection Test & Transfer ──
+
+    fun testConnection() {
+        viewModelScope.launch {
+            _isTestingConnection.value = true
+            _connectionTestResult.value = null
+            
+            val hostVal = _kindleIp.value
+            val portVal = _kindlePort.value.toIntOrNull() ?: 22
+            val userVal = _kindleUsername.value
+            val passVal = _kindlePassword.value
+
+            val result = KindleSftpClient.testConnection(
+                host = hostVal,
+                port = portVal,
+                user = userVal,
+                pass = passVal
+            )
+
+            _connectionTestResult.value = result
+            _isTestingConnection.value = false
         }
     }
 
-    /** Push current queue to the HTTP server so Kindle can see them */
-    fun syncQueueToServer() {
-        bookServer.setQueuedBooks(_transferQueue.value)
+    fun clearConnectionTestResult() {
+        _connectionTestResult.value = null
+    }
+
+    fun resetTransferState() {
+        _transferState.value = TransferState.Idle
+    }
+
+    fun transferBooksToKindle() {
+        val booksToTransfer = _transferQueue.value
+        if (booksToTransfer.isEmpty()) return
+
+        viewModelScope.launch {
+            _transferState.value = TransferState.Idle
+
+            val hostVal = _kindleIp.value
+            val portVal = _kindlePort.value.toIntOrNull() ?: 22
+            val userVal = _kindleUsername.value
+            val passVal = _kindlePassword.value
+            val dirVal = _kindleDirectory.value
+            val rescanVal = _triggerRescan.value
+
+            val result = KindleSftpClient.transferBooks(
+                books = booksToTransfer,
+                host = hostVal,
+                port = portVal,
+                user = userVal,
+                pass = passVal,
+                directory = dirVal,
+                triggerRescan = rescanVal
+            ) { current, total, message ->
+                _transferState.value = TransferState.Progress(current, total, message)
+            }
+
+            if (result.isSuccess) {
+                _transferState.value = TransferState.Success
+                // Clear the queue on success
+                clearQueue()
+            } else {
+                val errorMsg = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
+                _transferState.value = TransferState.Error(errorMsg)
+            }
+        }
     }
 }
 

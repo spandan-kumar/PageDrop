@@ -75,8 +75,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -116,8 +121,18 @@ fun BookScreen(
     val transferQueue by viewModel.transferQueue.collectAsStateWithLifecycle()
     val isConverting by viewModel.isConverting.collectAsStateWithLifecycle()
     val conversionError by viewModel.conversionError.collectAsStateWithLifecycle()
-    val serverRunning by viewModel.serverRunning.collectAsStateWithLifecycle()
-    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
+    
+    val kindleIp by viewModel.kindleIp.collectAsStateWithLifecycle()
+    val kindlePort by viewModel.kindlePort.collectAsStateWithLifecycle()
+    val kindleUsername by viewModel.kindleUsername.collectAsStateWithLifecycle()
+    val kindlePassword by viewModel.kindlePassword.collectAsStateWithLifecycle()
+    val kindleDirectory by viewModel.kindleDirectory.collectAsStateWithLifecycle()
+    val triggerRescan by viewModel.triggerRescan.collectAsStateWithLifecycle()
+
+    val isTestingConnection by viewModel.isTestingConnection.collectAsStateWithLifecycle()
+    val connectionTestResult by viewModel.connectionTestResult.collectAsStateWithLifecycle()
+    val transferState by viewModel.transferState.collectAsStateWithLifecycle()
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -201,12 +216,31 @@ fun BookScreen(
     if (showTransferSheet) {
         TransferBottomSheet(
             sheetState = transferSheetState,
-            serverRunning = serverRunning,
-            serverUrl = serverUrl,
+            kindleIp = kindleIp,
+            kindlePort = kindlePort,
+            kindleUsername = kindleUsername,
+            kindlePassword = kindlePassword,
+            kindleDirectory = kindleDirectory,
+            triggerRescan = triggerRescan,
+            isTestingConnection = isTestingConnection,
+            connectionTestResult = connectionTestResult,
+            transferState = transferState,
             selectedBooks = transferQueue,
-            onToggleServer = { viewModel.toggleServer(context) },
-            onRefreshIp = { viewModel.refreshIpAddress() },
-            onDismiss = { showTransferSheet = false },
+            onIpChange = viewModel::updateKindleIp,
+            onPortChange = viewModel::updateKindlePort,
+            onUsernameChange = viewModel::updateKindleUsername,
+            onPasswordChange = viewModel::updateKindlePassword,
+            onDirectoryChange = viewModel::updateKindleDirectory,
+            onTriggerRescanChange = viewModel::updateTriggerRescan,
+            onTestConnection = viewModel::testConnection,
+            onClearTestResult = viewModel::clearConnectionTestResult,
+            onStartTransfer = viewModel::transferBooksToKindle,
+            onResetTransferState = viewModel::resetTransferState,
+            onDismiss = { 
+                showTransferSheet = false
+                viewModel.resetTransferState()
+                viewModel.clearConnectionTestResult()
+            },
         )
     }
 
@@ -230,7 +264,6 @@ fun BookScreen(
         onToggleQueued = viewModel::toggleQueued,
         onDeleteBook = viewModel::deleteBook,
         onOpenTransferSheet = {
-            viewModel.syncQueueToServer()
             showTransferSheet = true
         },
         modifier = modifier,
@@ -315,18 +348,33 @@ private fun FormatOptionsBottomSheet(
 }
 
 // ─────────────────────────────────────────────────────────────
-// Transfer Bottom Sheet
+// Transfer / Settings Bottom Sheet
 // ─────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransferBottomSheet(
     sheetState: androidx.compose.material3.SheetState,
-    serverRunning: Boolean,
-    serverUrl: String?,
+    kindleIp: String,
+    kindlePort: String,
+    kindleUsername: String,
+    kindlePassword: String,
+    kindleDirectory: String,
+    triggerRescan: Boolean,
+    isTestingConnection: Boolean,
+    connectionTestResult: Result<Unit>?,
+    transferState: BookViewModel.TransferState,
     selectedBooks: List<Book>,
-    onToggleServer: () -> Unit,
-    onRefreshIp: () -> Unit,
+    onIpChange: (String) -> Unit,
+    onPortChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onDirectoryChange: (String) -> Unit,
+    onTriggerRescanChange: (Boolean) -> Unit,
+    onTestConnection: () -> Unit,
+    onClearTestResult: () -> Unit,
+    onStartTransfer: () -> Unit,
+    onResetTransferState: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -338,121 +386,263 @@ private fun TransferBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 36.dp),
+                .padding(bottom = 36.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Status indicator
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val dotColor by animateColorAsState(
-                    targetValue = if (serverRunning)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.outline,
-                    label = "dot",
+            Text(
+                text = "Kindle Connection Settings",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            // IP & Port
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = kindleIp,
+                    onValueChange = onIpChange,
+                    label = { Text("Kindle IP Address") },
+                    placeholder = { Text("e.g. 192.168.1.100") },
+                    singleLine = true,
+                    modifier = Modifier.weight(2f)
                 )
-                Box(
-                    Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(dotColor)
+
+                OutlinedTextField(
+                    value = kindlePort,
+                    onValueChange = onPortChange,
+                    label = { Text("Port") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Username & Password
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = kindleUsername,
+                    onValueChange = onUsernameChange,
+                    label = { Text("Username") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+
+                OutlinedTextField(
+                    value = kindlePassword,
+                    onValueChange = onPasswordChange,
+                    label = { Text("Password") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Target Directory
+            OutlinedTextField(
+                value = kindleDirectory,
+                onValueChange = onDirectoryChange,
+                label = { Text("Kindle Documents Directory") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Trigger Library Rescan Checkbox
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = triggerRescan,
+                    onCheckedChange = onTriggerRescanChange
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = if (serverRunning) "Running" else "Stopped",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    text = "Trigger Library Rescan after transfer",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-
-            // Server URL
-            if (serverUrl != null) {
-                Text(
-                    text = serverUrl,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                Text(
-                    text = "Enable WiFi hotspot first",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            // Toggle server button
-            FilledTonalButton(
-                onClick = onToggleServer,
-                enabled = serverUrl != null,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (serverRunning) "Stop Server" else "Start Server")
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Refresh IP
-            TextButton(onClick = onRefreshIp) {
-                Text("Refresh IP")
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            // Instructions
-            val steps = listOf(
-                "Connect your Kindle to the same WiFi or your hotspot",
-                "Open the browser on your Kindle",
-                "Navigate to the URL shown above",
-                "Tap SYNC on each book to download",
-            )
-            steps.forEachIndexed { index, step ->
+            // Test Connection button and status
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "${index + 1}.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(24.dp),
-                    )
-                    Text(
-                        text = step,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    OutlinedButton(
+                        onClick = onTestConnection,
+                        enabled = !isTestingConnection && kindleIp.isNotBlank(),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (isTestingConnection) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Testing...")
+                        } else {
+                            Text("Test Connection")
+                        }
+                    }
+                }
+
+                connectionTestResult?.let { result ->
+                    Spacer(Modifier.height(8.dp))
+                    if (result.isSuccess) {
+                        Text(
+                            text = "✓ Connection Successful!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else {
+                        val errMsg = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
+                        Text(
+                            text = "✗ Failed to connect: $errMsg",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 
-            // Selected books
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            // Book Selection / Summary
             if (selectedBooks.isNotEmpty()) {
-                Spacer(Modifier.height(20.dp))
-
-                Text(
-                    text = "Selected (${selectedBooks.size})",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                selectedBooks.forEach { book ->
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = book.title,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(vertical = 2.dp),
+                        text = "Books to Send (${selectedBooks.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+                    Spacer(Modifier.height(8.dp))
+                    selectedBooks.forEach { book ->
+                        Text(
+                            text = book.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            // Transfer action and status
+            Column(modifier = Modifier.fillMaxWidth()) {
+                when (transferState) {
+                    is BookViewModel.TransferState.Idle -> {
+                        Button(
+                            onClick = onStartTransfer,
+                            enabled = kindleIp.isNotBlank() && selectedBooks.isNotEmpty(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Send to Kindle")
+                        }
+                    }
+
+                    is BookViewModel.TransferState.Progress -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { if (transferState.total > 0) transferState.current.toFloat() / transferState.total else 0f },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = transferState.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+
+                    is BookViewModel.TransferState.Success -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "✓ Sent Successfully!",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Books have been transferred and indexed on your Kindle.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(
+                                onClick = onDismiss,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Close")
+                            }
+                        }
+                    }
+
+                    is BookViewModel.TransferState.Error -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "✗ Transfer Failed",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = transferState.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = onResetTransferState,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Back")
+                                }
+                                Button(
+                                    onClick = onStartTransfer,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

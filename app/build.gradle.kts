@@ -119,8 +119,8 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
 
-    // NanoHTTPD - Embedded HTTP server for Kindle transfer
-    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    // SSH/SFTP client support for jailbroken Kindle transfer
+    implementation("com.github.mwiede:jsch:2.28.3")
 
     // EPUB parsing for EPUB → MOBI conversion
     implementation("com.positiondev.epublib:epublib-core:3.1") {
