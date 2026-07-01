@@ -16,6 +16,7 @@
 local.properties
 app/schemas/
 .commandcode/
+server/supabase/.temp/
 /device_paths.md
 /implementation_plan.md
 /mobi_comparison.md
