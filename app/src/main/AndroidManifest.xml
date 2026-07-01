@@ -21,6 +21,11 @@
     <!-- Network permissions for SSH/SFTP connection to Kindle -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Notifications for background transfer -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Foreground service for ongoing transfers -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:allowBackup="true"
@@ -43,29 +48,33 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Receive shared ebook files -->
+            <!-- Share single file from any app -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/x-mobipocket-ebook" />
-                <data android:mimeType="application/x-mobi8-ebook" />
-                <data android:mimeType="application/pdf" />
                 <data android:mimeType="application/epub+zip" />
+                <data android:mimeType="application/pdf" />
                 <data android:mimeType="text/plain" />
+                <data android:mimeType="application/x-mobipocket-ebook" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
 
-            <!-- Receive shared files via VIEW -->
+            <!-- Share multiple files -->
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="content" />
-                <data android:mimeType="application/x-mobipocket-ebook" />
-                <data android:mimeType="application/x-mobi8-ebook" />
-                <data android:mimeType="application/pdf" />
                 <data android:mimeType="application/epub+zip" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="application/x-mobipocket-ebook" />
                 <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+
+            <!-- Share URL / plain text -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
 
