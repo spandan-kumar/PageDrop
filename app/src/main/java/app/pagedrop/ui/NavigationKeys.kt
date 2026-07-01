@@ -42,3 +42,6 @@ data object Sync : NavKey
 
 @Serializable
 data object Articles : NavKey
+
+@Serializable
+data object Connection : NavKey

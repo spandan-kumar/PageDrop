@@ -29,6 +29,7 @@ import app.pagedrop.ui.tools.dictionaries.DictionariesScreen
 import app.pagedrop.ui.tools.screensavers.ScreensaverScreen
 import app.pagedrop.ui.tools.sync.SyncScreen
 import app.pagedrop.ui.tools.articles.ArticlesScreen
+import app.pagedrop.ui.connection.ConnectionScreen
 
 @Composable
 fun MainNavigation() {
@@ -54,7 +55,8 @@ fun MainNavigation() {
                     onNavigateToDictionaries = { backStack.addLast(Dictionaries) },
                     onNavigateToDashboard = { backStack.addLast(Dashboard) },
                     onNavigateToSync = { backStack.addLast(Sync) },
-                    onNavigateToArticles = { backStack.addLast(Articles) }
+                    onNavigateToArticles = { backStack.addLast(Articles) },
+                    onNavigateToConnection = { backStack.addLast(Connection) }
                 )
             }
             entry<Screensaver> {
@@ -89,6 +91,12 @@ fun MainNavigation() {
             }
             entry<Articles> {
                 ArticlesScreen(
+                    modifier = Modifier.safeDrawingPadding(),
+                    onBack = { backStack.removeLastOrNull() }
+                )
+            }
+            entry<Connection> {
+                ConnectionScreen(
                     modifier = Modifier.safeDrawingPadding(),
                     onBack = { backStack.removeLastOrNull() }
                 )

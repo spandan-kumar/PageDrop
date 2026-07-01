@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.RssFeed
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,7 +50,8 @@ fun ToolsScreen(
     onNavigateToDictionaries: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
     onNavigateToSync: () -> Unit = {},
-    onNavigateToArticles: () -> Unit = {}
+    onNavigateToArticles: () -> Unit = {},
+    onNavigateToConnection: () -> Unit = {}
 ) {
     Scaffold(
         modifier = modifier,
@@ -117,6 +119,12 @@ fun ToolsScreen(
                     subtitle = "Share URL, extract & send to Kindle",
                     icon = Icons.Default.RssFeed,
                     onClick = onNavigateToArticles
+                )
+                ToolCard(
+                    title = "Connection",
+                    subtitle = "SSH/SFTP settings & test",
+                    icon = Icons.Default.Wifi,
+                    onClick = onNavigateToConnection
                 )
             }
         }
