@@ -132,12 +132,9 @@ dependencies {
     // PDF parsing for PDF → MOBI conversion
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
-    // Server API client
+    // Server API client — OkHttp calls Supabase REST API directly
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
-
-    // Supabase
-    implementation("io.github.jan-tennert.supabase:supabase-kt-android:3.2.2")
 
     // Archive extraction for dictionary/font installers
     implementation("org.apache.commons:commons-compress:1.27.1")
