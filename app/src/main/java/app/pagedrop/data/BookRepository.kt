@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 import app.pagedrop.data.local.database.Book
 import app.pagedrop.data.local.database.BookDao
 import app.pagedrop.converter.BookConverter
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import java.io.File
 import javax.inject.Inject
@@ -33,10 +34,12 @@ import javax.inject.Inject
 interface BookRepository {
     fun getBooks(): Flow<List<Book>>
     suspend fun addBook(context: Context, uri: Uri): Book
+    suspend fun addBookFromFile(book: Book): Long
     suspend fun convertAndAddBook(context: Context, uri: Uri): Book
     suspend fun deleteBook(book: Book)
     suspend fun getBookById(id: Int): Book?
     suspend fun markTransferred(uid: Int)
+    suspend fun markTransferredBookIds(uids: List<Int>)
 }
 
 class DefaultBookRepository @Inject constructor(
@@ -46,6 +49,7 @@ class DefaultBookRepository @Inject constructor(
     companion object {
         private const val TAG = "BookRepository"
         private const val BOOKS_DIR = "books"
+        private const val COVERS_DIR = "covers"
 
         /** Supported ebook file extensions and their format names */
         private val FORMAT_MAP = mapOf(
@@ -152,63 +156,57 @@ class DefaultBookRepository @Inject constructor(
 
     /**
      * Copies a book file from the given content [uri], converts it to MOBI using
-     * [BookConverter], and adds the resulting MOBI file to the library.
-     * The intermediate source copy is deleted after conversion.
+     * [BookConverter], saves any extracted cover image, and adds the resulting
+     * MOBI file to the library. The intermediate source copy is deleted.
      * Supports EPUB, PDF, and TXT formats.
      */
     override suspend fun convertAndAddBook(context: Context, uri: Uri): Book = withContext(Dispatchers.IO) {
         val booksDir = File(context.filesDir, BOOKS_DIR)
-        if (!booksDir.exists()) {
-            booksDir.mkdirs()
-        }
+        if (!booksDir.exists()) booksDir.mkdirs()
 
-        // Extract original filename
         val displayName = getDisplayName(context, uri) ?: "unknown_${System.currentTimeMillis()}"
         val format = detectFormat(displayName)
         Log.d(TAG, "Converting $format: $displayName")
 
-        // Verify we can convert this format
         if (!BookConverter.canConvert(format)) {
             throw IllegalStateException(
-                "$format files cannot be converted to MOBI. " +
-                "Supported formats: EPUB, PDF, TXT."
+                "$format files cannot be converted to MOBI. Supported formats: EPUB, PDF, TXT."
             )
         }
 
-        // Copy source file to a temp file in the books directory
         val ext = displayName.substringAfterLast(".", "tmp").lowercase()
         val tempFile = File(booksDir, "_converting_${System.currentTimeMillis()}.$ext")
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
-                tempFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
+                tempFile.outputStream().use { output -> input.copyTo(output) }
             } ?: throw IllegalStateException("Could not open input stream for URI: $uri")
 
-            // Determine MOBI filename from the original name
             val baseName = displayName.substringBeforeLast(".")
             val mobiFileName = "$baseName.mobi"
             val mobiFile = generateUniqueFile(booksDir, mobiFileName)
 
-            // Convert to MOBI with a 2 minute timeout
-            val success = try {
+            val result = try {
                 withTimeout(120_000L) {
                     BookConverter.convertToMobi(context, tempFile, mobiFile)
                 }
-            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            } catch (e: TimeoutCancellationException) {
                 Log.e(TAG, "Conversion timed out after 120s for: $displayName")
                 if (mobiFile.exists()) mobiFile.delete()
                 throw IllegalStateException("Conversion timed out. The file may be too large or complex.")
             }
 
-            if (!success) {
+            if (!result.success) {
                 throw IllegalStateException("$format to MOBI conversion failed for: $displayName")
+            }
+
+            // Save cover image if extracted
+            val coverPath = result.coverBytes?.let { bytes ->
+                saveCoverBytes(context, bytes, baseName)
             }
 
             val fileSize = mobiFile.length()
             Log.d(TAG, "Converted: $displayName → ${mobiFile.name} (${formatFileSize(fileSize)})")
 
-            // Extract metadata from filename
             val (title, author) = parseBookNameAndAuthor(baseName)
 
             val book = Book(
@@ -217,18 +215,34 @@ class DefaultBookRepository @Inject constructor(
                 fileName = mobiFile.name,
                 filePath = mobiFile.absolutePath,
                 format = "MOBI",
-                fileSize = fileSize
+                fileSize = fileSize,
+                coverPath = coverPath,
+                kindleUuid = result.kindleUuid
             )
 
             val id = bookDao.insertBook(book)
             Log.d(TAG, "Inserted converted book with id=$id: $title by $author")
-
             book.copy(uid = id.toInt())
         } finally {
-            // Clean up the temp source copy
-            if (tempFile.exists()) {
-                tempFile.delete()
-            }
+            if (tempFile.exists()) tempFile.delete()
+        }
+    }
+
+    /**
+     * Saves cover image bytes to `context.filesDir/covers/{baseName}_cover.jpg`
+     * and returns the absolute path.
+     */
+    private fun saveCoverBytes(context: Context, bytes: ByteArray, baseName: String): String? {
+        return try {
+            val coversDir = File(context.filesDir, COVERS_DIR)
+            if (!coversDir.exists()) coversDir.mkdirs()
+            val coverFile = File(coversDir, "${baseName}_cover.jpg")
+            coverFile.outputStream().use { it.write(bytes) }
+            Log.d(TAG, "Saved cover: ${coverFile.absolutePath}")
+            coverFile.absolutePath
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save cover bytes: ${e.message}", e)
+            null
         }
     }
 
@@ -236,6 +250,17 @@ class DefaultBookRepository @Inject constructor(
 
     override suspend fun markTransferred(uid: Int) {
         bookDao.updateLastTransferred(uid, System.currentTimeMillis())
+    }
+
+    override suspend fun markTransferredBookIds(uids: List<Int>) {
+        val timestamp = System.currentTimeMillis()
+        uids.forEach { uid ->
+            bookDao.updateLastTransferred(uid, timestamp)
+        }
+    }
+
+    override suspend fun addBookFromFile(book: Book): Long {
+        return bookDao.insertBook(book)
     }
 
     // ── Helpers ──────────────────────────────────────────────

@@ -27,9 +27,9 @@ object EpubToMobiConverter {
      *
      * @param epubFile source EPUB file
      * @param mobiFile target MOBI file (will be created)
-     * @return true if conversion succeeded
+     * @return [ConversionResult] with success status, cover bytes, and Kindle UUID
      */
-    suspend fun convert(epubFile: File, mobiFile: File, fallbackTitle: String? = null): Boolean = withContext(Dispatchers.IO) {
+    suspend fun convert(epubFile: File, mobiFile: File, fallbackTitle: String? = null): ConversionResult = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Starting conversion: ${epubFile.name} → ${mobiFile.name}")
 
@@ -71,14 +71,15 @@ object EpubToMobiConverter {
             writer.write(mobiFile)
 
             Log.d(TAG, "Conversion complete: ${mobiFile.length()} bytes")
-            true
+            ConversionResult(
+                success = true,
+                coverBytes = coverImage,
+                kindleUuid = writer.kindleUuid
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Conversion failed: ${e.message}", e)
-            // Clean up partial file
-            if (mobiFile.exists()) {
-                mobiFile.delete()
-            }
-            false
+            if (mobiFile.exists()) mobiFile.delete()
+            ConversionResult(success = false)
         }
     }
 

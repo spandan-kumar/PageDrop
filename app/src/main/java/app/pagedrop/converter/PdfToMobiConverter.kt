@@ -31,9 +31,9 @@ object PdfToMobiConverter {
      * @param context Android context (needed for PDFBox resource initialization)
      * @param pdfFile source PDF file
      * @param mobiFile target MOBI file (will be created)
-     * @return true if conversion succeeded
+     * @return [ConversionResult] with success status and Kindle UUID (PDFs have no cover)
      */
-    suspend fun convert(context: Context, pdfFile: File, mobiFile: File): Boolean = withContext(Dispatchers.IO) {
+    suspend fun convert(context: Context, pdfFile: File, mobiFile: File): ConversionResult = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Starting conversion: ${pdfFile.name} → ${mobiFile.name}")
 
@@ -63,15 +63,16 @@ object PdfToMobiConverter {
                 writer.write(mobiFile)
 
                 Log.d(TAG, "Conversion complete: ${mobiFile.length()} bytes")
-                true
+                ConversionResult(
+                    success = true,
+                    coverBytes = null,
+                    kindleUuid = writer.kindleUuid
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Conversion failed: ${e.message}", e)
-            // Clean up partial file
-            if (mobiFile.exists()) {
-                mobiFile.delete()
-            }
-            false
+            if (mobiFile.exists()) mobiFile.delete()
+            ConversionResult(success = false)
         }
     }
 

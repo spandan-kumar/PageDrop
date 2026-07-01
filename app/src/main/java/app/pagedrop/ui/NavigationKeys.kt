@@ -21,3 +21,24 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data object Main : NavKey
+
+@Serializable
+data object Tools : NavKey
+
+@Serializable
+data object Screensaver : NavKey
+
+@Serializable
+data object Fonts : NavKey
+
+@Serializable
+data object Dictionaries : NavKey
+
+@Serializable
+data object Dashboard : NavKey
+
+@Serializable
+data object Sync : NavKey
+
+@Serializable
+data object Articles : NavKey

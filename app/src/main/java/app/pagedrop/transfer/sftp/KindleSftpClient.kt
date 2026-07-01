@@ -1,6 +1,5 @@
 package app.pagedrop.transfer.sftp
 
-import android.content.Context
 import android.util.Log
 import app.pagedrop.data.local.database.Book
 import com.jcraft.jsch.ChannelExec
@@ -9,10 +8,12 @@ import com.jcraft.jsch.JSch
 import com.jcraft.jsch.Session
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 import java.io.File
 
 object KindleSftpClient {
     private const val TAG = "KindleSftpClient"
+    private const val THUMBNAILS_DIR = "/mnt/us/system/thumbnails"
 
     /**
      * Tests connection to the Kindle SSH/SFTP server.
@@ -33,7 +34,7 @@ object KindleSftpClient {
             session = jsch.getSession(user, host, port)
             session.setPassword(pass)
             session.setConfig("StrictHostKeyChecking", "no")
-            session.connect(5000) // 5s timeout
+            session.connect(5000)
             Log.d(TAG, "SSH Connection test successful")
             Result.success(Unit)
         } catch (e: Exception) {
@@ -46,6 +47,8 @@ object KindleSftpClient {
 
     /**
      * Transfers selected books to the Kindle via SFTP, then triggers a library rescan.
+     *
+     * @param thumbnailBytes optional pre-rendered thumbnail per book
      */
     suspend fun transferBooks(
         books: List<Book>,
@@ -55,7 +58,8 @@ object KindleSftpClient {
         pass: String,
         directory: String,
         triggerRescan: Boolean,
-        onProgress: (Int, Int, String) -> Unit // (currentBookIndex, totalBooks, statusMessage)
+        thumbnailBytes: Map<Int, ByteArray> = emptyMap(),
+        onProgress: (Int, Int, String) -> Unit
     ): Result<Unit> = withContext(Dispatchers.IO) {
         var session: Session? = null
         var sftpChannel: ChannelSftp? = null
@@ -69,13 +73,12 @@ object KindleSftpClient {
             session = jsch.getSession(user, host, port)
             session.setPassword(pass)
             session.setConfig("StrictHostKeyChecking", "no")
-            session.connect(10000) // 10s timeout
+            session.connect(10000)
 
             onProgress(0, books.size, "Opening SFTP channel...")
             sftpChannel = session.openChannel("sftp") as ChannelSftp
             sftpChannel.connect(10000)
 
-            // Ensure destination directory ends with /
             val destDir = if (directory.endsWith("/")) directory else "$directory/"
 
             books.forEachIndexed { index, book ->
@@ -84,21 +87,31 @@ object KindleSftpClient {
                 if (!file.exists()) {
                     throw java.io.FileNotFoundException("File not found: ${book.filePath}")
                 }
-                
-                // Upload file
+
                 file.inputStream().use { inputStream ->
                     sftpChannel.put(inputStream, destDir + book.fileName)
+                }
+
+                thumbnailBytes[book.uid]?.let { tBytes ->
+                    val thumbName = book.kindleUuid?.let {
+                        "thumbnail_${it}_EBOK_portrait.jpg"
+                    } ?: "thumbnail_${book.uid}_EBOK_portrait.jpg"
+                    try {
+                        ByteArrayInputStream(tBytes).use { tStream ->
+                            sftpChannel.put(tStream, "$THUMBNAILS_DIR/$thumbName")
+                        }
+                        Log.d(TAG, "Thumbnail uploaded: $thumbName")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Thumbnail upload failed for ${book.title}: ${e.message}")
+                    }
                 }
             }
 
             if (triggerRescan) {
                 onProgress(books.size, books.size, "Triggering Kindle library rescan...")
                 val execChannel = session.openChannel("exec") as ChannelExec
-                // Trigger Kindle library rescan via lipc-set-prop
                 execChannel.setCommand("lipc-set-prop com.lab126.amznAssetsMgrService reScan 1")
                 execChannel.connect()
-                
-                // Wait briefly for execution to complete
                 var elapsed = 0
                 while (!execChannel.isClosed && elapsed < 2000) {
                     Thread.sleep(100)

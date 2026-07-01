@@ -15,3 +15,13 @@
  */
 
 // Root build.gradle.kts
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("com.squareup:javawriter:2.5.0")
+    }
+}

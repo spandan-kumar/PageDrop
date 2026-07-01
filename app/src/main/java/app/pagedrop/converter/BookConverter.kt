@@ -22,15 +22,15 @@ object BookConverter {
      * @param context Android context (needed for PDF conversion)
      * @param inputFile source file (EPUB, PDF, or TXT)
      * @param outputFile target MOBI file (will be created)
-     * @return true if conversion succeeded, false if the format is unsupported or conversion fails
+     * @return [ConversionResult] with success status, cover bytes, and Kindle UUID
      */
-    suspend fun convertToMobi(context: Context, inputFile: File, outputFile: File): Boolean {
+    suspend fun convertToMobi(context: Context, inputFile: File, outputFile: File): ConversionResult {
         val fallbackTitle = outputFile.nameWithoutExtension
         return when (inputFile.extension.lowercase()) {
             "epub" -> EpubToMobiConverter.convert(inputFile, outputFile, fallbackTitle = fallbackTitle)
             "pdf" -> PdfToMobiConverter.convert(context, inputFile, outputFile)
             "txt" -> TxtToMobiConverter.convert(inputFile, outputFile, title = fallbackTitle)
-            else -> false // unsupported format
+            else -> ConversionResult(success = false)
         }
     }
 

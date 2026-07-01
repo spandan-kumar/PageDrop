@@ -17,6 +17,8 @@
 package app.pagedrop.ui.book
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -37,6 +39,8 @@ import app.pagedrop.transfer.sftp.KindleSftpClient
 import app.pagedrop.ui.book.LibraryUiState.Error
 import app.pagedrop.ui.book.LibraryUiState.Loading
 import app.pagedrop.ui.book.LibraryUiState.Success
+import java.io.ByteArrayOutputStream
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -231,6 +235,27 @@ class BookViewModel @Inject constructor(
         viewModelScope.launch {
             _transferState.value = TransferState.Idle
 
+            // Prepare thumbnail bytes from cover files
+            val thumbs = mutableMapOf<Int, ByteArray>()
+            for (book in booksToTransfer) {
+                book.coverPath?.let { path ->
+                    try {
+                        val coverFile = File(path)
+                        if (coverFile.exists()) {
+                            val source = BitmapFactory.decodeFile(path)
+                            if (source != null) {
+                                val scaled = Bitmap.createScaledBitmap(source, 330, 430, true)
+                                if (scaled != source) source.recycle()
+                                val out = ByteArrayOutputStream()
+                                scaled.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                                scaled.recycle()
+                                thumbs[book.uid] = out.toByteArray()
+                            }
+                        }
+                    } catch (_: Exception) { }
+                }
+            }
+
             val hostVal = _kindleIp.value
             val portVal = _kindlePort.value.toIntOrNull() ?: 22
             val userVal = _kindleUsername.value
@@ -245,14 +270,17 @@ class BookViewModel @Inject constructor(
                 user = userVal,
                 pass = passVal,
                 directory = dirVal,
-                triggerRescan = rescanVal
+                triggerRescan = rescanVal,
+                thumbnailBytes = thumbs
             ) { current, total, message ->
                 _transferState.value = TransferState.Progress(current, total, message)
             }
 
             if (result.isSuccess) {
                 _transferState.value = TransferState.Success
-                // Clear the queue on success
+                bookRepository.markTransferredBookIds(
+                    booksToTransfer.map { it.uid }
+                )
                 clearQueue()
             } else {
                 val errorMsg = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"

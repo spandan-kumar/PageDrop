@@ -24,13 +24,13 @@ object TxtToMobiConverter {
      * @param txtFile source .txt file
      * @param mobiFile target MOBI file (will be created)
      * @param title optional title override; defaults to the filename without extension
-     * @return true if conversion succeeded
+     * @return [ConversionResult] with success status and Kindle UUID (TXT has no cover)
      */
     suspend fun convert(
         txtFile: File,
         mobiFile: File,
         title: String? = null
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): ConversionResult = withContext(Dispatchers.IO) {
         try {
             val bookTitle = title?.takeIf { it.isNotBlank() } ?: txtFile.nameWithoutExtension
             Log.d(TAG, "Starting conversion: ${txtFile.name} → ${mobiFile.name}")
@@ -40,7 +40,7 @@ object TxtToMobiConverter {
 
             if (rawText.isBlank()) {
                 Log.w(TAG, "Text file is empty: ${txtFile.name}")
-                return@withContext false
+                return@withContext ConversionResult(success = false)
             }
 
             // 2. Build HTML from text
@@ -55,14 +55,15 @@ object TxtToMobiConverter {
             writer.write(mobiFile)
 
             Log.d(TAG, "Conversion complete: ${mobiFile.length()} bytes")
-            true
+            ConversionResult(
+                success = true,
+                coverBytes = null,
+                kindleUuid = writer.kindleUuid
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Conversion failed: ${e.message}", e)
-            // Clean up partial file
-            if (mobiFile.exists()) {
-                mobiFile.delete()
-            }
-            false
+            if (mobiFile.exists()) mobiFile.delete()
+            ConversionResult(success = false)
         }
     }
 

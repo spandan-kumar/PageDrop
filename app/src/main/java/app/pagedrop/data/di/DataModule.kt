@@ -46,6 +46,10 @@ class FakeBookRepository @Inject constructor() : BookRepository {
         throw NotImplementedError()
     }
 
+    override suspend fun convertAndAddBook(context: android.content.Context, uri: android.net.Uri): Book {
+        throw NotImplementedError()
+    }
+
     override suspend fun deleteBook(book: Book) {
         throw NotImplementedError()
     }
@@ -58,7 +62,11 @@ class FakeBookRepository @Inject constructor() : BookRepository {
         throw NotImplementedError()
     }
 
-    override suspend fun convertAndAddBook(context: android.content.Context, uri: android.net.Uri): Book {
+    override suspend fun markTransferredBookIds(uids: List<Int>) {
+        throw NotImplementedError()
+    }
+
+    override suspend fun addBookFromFile(book: Book): Long {
         throw NotImplementedError()
     }
 }

@@ -50,6 +50,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.rounded.Delete
@@ -115,6 +116,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun BookScreen(
     modifier: Modifier = Modifier,
+    onNavigateToTools: () -> Unit = {},
     viewModel: BookViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -266,6 +268,7 @@ fun BookScreen(
         onOpenTransferSheet = {
             showTransferSheet = true
         },
+        onNavigateToTools = onNavigateToTools,
         modifier = modifier,
     )
 }
@@ -664,6 +667,7 @@ internal fun LibraryScreenContent(
     onToggleQueued: (Book) -> Unit,
     onDeleteBook: (Book) -> Unit,
     onOpenTransferSheet: () -> Unit,
+    onNavigateToTools: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -679,6 +683,12 @@ internal fun LibraryScreenContent(
                     )
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToTools) {
+                        Icon(
+                            Icons.Default.Build,
+                            contentDescription = "Tools",
+                        )
+                    }
                     IconButton(onClick = onAddBookClick) {
                         Icon(
                             Icons.Default.Add,

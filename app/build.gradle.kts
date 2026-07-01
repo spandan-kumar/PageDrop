@@ -131,4 +131,14 @@ dependencies {
 
     // PDF parsing for PDF → MOBI conversion
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+
+    // Server API client
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.okhttp)
+
+    // Archive extraction for dictionary/font installers
+    implementation("org.apache.commons:commons-compress:1.27.1")
+
+    // Image loading for UI
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }

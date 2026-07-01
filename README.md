@@ -1,115 +1,128 @@
-# PageDrop 📚
+# PageDrop
 
-**Wirelessly send books from your phone to your Kindle — no USB, no cloud, no Amazon.**
+PageDrop is a phone-first companion app for jailbroken Kindle and KOReader users.
+It makes sideloading, local sync, covers, screensavers, fonts, dictionaries, and
+repair tasks feel like one simple mobile workflow instead of a pile of desktop
+tools, SFTP clients, Calibre plugins, and shell commands.
 
-PageDrop is an open-source Android app that lets you transfer ebooks to your Kindle over local WiFi. It runs a lightweight HTTP server on your phone, and your Kindle's browser downloads books directly.
+The product rule is simple:
 
-Built for Kindle owners who lost access to Amazon's Send-to-Kindle service (Kindle Paperwhite 1st Gen, Kindle Touch, etc.) but works with any Kindle that has a browser.
+> PageDrop is the only app users should have to interact with.
 
-## How It Works
-
-```
-📱 Phone (PageDrop app)          📖 Kindle (Browser)
-┌─────────────────────┐          ┌──────────────────┐
-│  1. Add books        │          │                  │
-│  2. Start server     │──WiFi──▶│  3. Open browser  │
-│  3. Show URL         │          │  4. Go to URL     │
-│                      │◀─────── │  5. Tap SYNC      │
-│  Done! ✓             │          │  Book downloaded! │
-└─────────────────────┘          └──────────────────┘
-```
+Calibre, Calibre-Web-Automated, command-line converters, article extractors, and
+other backend tools can be used by PageDrop servers for heavy conversion and
+formatting work, but they should remain implementation details behind
+PageDrop's own UI and APIs.
 
 ## Features
 
-- **📤 Wireless Transfer** — No USB cables needed. Books transfer over local WiFi/hotspot
-- **🔄 EPUB → MOBI Conversion** — Automatically converts EPUB files for older Kindles
-- **📱 All From Your Phone** — Manage your library, queue books, control everything
-- **🔒 100% Local** — No cloud, no accounts, no data leaves your network
-- **📖 Kindle-Optimized** — E-ink friendly download page tested on real Kindle hardware
-- **🆓 Free & Open Source** — No ads, no tracking, no BS
+### Direct Mode (built-in)
 
-## Supported Formats
+- Add books from Android document picker (supports EPUB, PDF, TXT, MOBI, AZW3)
+- On-device EPUB/PDF/TXT → MOBI conversion with custom MobiWriter engine
+- Extraction and persistence of cover images from EPUB files
+- Local library with duplicate detection and metadata parsing
+- Queue and transfer books to Kindle over SSH/SFTP
+- Automatic thumbnail generation (EXTH UUID-based naming, resize to 330×430, upload to `/mnt/us/system/thumbnails`)
+- Kindle library rescan trigger via `lipc-set-prop`
+- Transfer history tracking with `lastTransferred` timestamps
 
-| Format | Transfer | Notes |
-|--------|----------|-------|
-| AZW3   | ✅ Direct | Best quality for Kindle |
-| MOBI   | ✅ Direct | Legacy but works perfectly |
-| PDF    | ✅ Direct | No reflow on 6" screens |
-| TXT    | ✅ Direct | Plain text |
-| EPUB   | ✅ Convert | Auto-converts to MOBI |
+### Tools Suite
 
-## Getting Started
+- **Screensaver Optimizer** — pick any image, select Kindle model, auto crop/resize/grayscale, upload to LinkSS
+- **Font Installer** — curated catalog of e-ink-tuned fonts, download/validate/install to Kindle and KOReader paths
+- **Dictionary Installer** — StarDict catalog, tar.bz2 extraction, install to KOReader dict paths
+- **Device Dashboard** — read firmware/space/battery/jailbreak status, trigger rescan, reboot, repair recipes
+- **KOReader Sync Broker** — scan `.sdr` folders, parse Lua metadata and highlights, read-only import
+- **Article Sideloading** — share URL, extract readable content, build MOBI, transfer directly to Kindle
 
-### Prerequisites
-- Android phone (API 26+, Android 8.0+)
-- Any Kindle with a web browser (Experimental Browser)
-- Both devices on the same WiFi network (or use your phone's hotspot)
+### Server-Assisted Mode (client built, server TBD)
 
-### Install
+- Optional PageDrop conversion server API client
+- Per-file decision: skip backend for already-compatible formats
+- Job polling and artifact downloading via OkHttp + kotlinx.serialization
+- Supports `POST /v1/convert`, `GET /v1/jobs/{id}`, `GET /v1/artifacts/{id}`, `POST /v1/articles/convert`
 
-1. Go to [Releases](../../releases) and download the latest APK
-2. Install on your Android phone (enable "Install from unknown sources")
-3. Open PageDrop
+## Architecture
 
-### Usage
+- Android app: Kotlin, Jetpack Compose, Material 3
+- Architecture: MVVM + Repository, Hilt DI, Room persistence
+- Navigation: Navigation3 (type-safe nav keys)
+- Transfer: JSch SSH/SFTP
+- Local conversion: custom PalmDOC/LZ77 MobiWriter, epublib, PDFBox
+- HTTP client: OkHttp with kotlinx.serialization (JSON)
+- Image loading: Coil
 
-1. **Add books** — Tap the ➕ button and pick ebook files
-2. **Select books** — Tap books to queue them for transfer
-3. **Start transfer** — Tap "Send to Kindle" and start the server
-4. **On your Kindle** — Open the browser, go to the URL shown on your phone
-5. **Download** — Tap SYNC next to each book
-
-## Building from Source
-
-### Using GitHub Actions (no Android Studio needed)
-1. Fork this repository
-2. Go to Actions → Build APK → Run workflow
-3. Download the APK artifact
-
-### Local Build
-```bash
-git clone https://github.com/YOUR_USERNAME/kindle-companion-app.git
-cd kindle-companion-app
-./gradlew assembleDebug
-# APK at app/build/outputs/apk/debug/app-debug.apk
-```
-
-## Tech Stack
-
-- **Language**: Kotlin
-- **UI**: Jetpack Compose + Material 3
-- **Architecture**: MVVM + Repository pattern
-- **DI**: Hilt
-- **Database**: Room
-- **HTTP Server**: NanoHTTPD
-- **EPUB Parsing**: epublib
-
-## Project Structure
+### Package Structure
 
 ```
 app/src/main/java/app/pagedrop/
-├── converter/          ← EPUB → MOBI conversion
-├── data/               ← Book entity, DAO, Repository
+├── converter/           EPUB/PDF/TXT → MOBI conversion, MobiWriter, ConversionResult
+├── data/
+│   ├── di/              Hilt modules, FakeBookRepository
+│   ├── local/database/  Room entities, DAOs, AppDatabase
+│   ├── BookRepository.kt
+│   └── KindleSettings.kt
+├── server/              PageDrop API client, DTOs, ServerSettings
+├── tools/
+│   ├── articles/        ArticleExtractor, ArticleMobiConverter
+│   ├── dashboard/       DeviceCommandRunner, repair recipes
+│   ├── dictionaries/    DictionaryCatalog, DictionaryInstaller
+│   ├── fonts/           FontCatalog, FontInstaller
+│   ├── screensavers/    KindleModelRegistry, ScreensaverProcessor
+│   └── sync/            KoreaderSyncBroker, LuaTableParser, models
 ├── transfer/
-│   ├── server/         ← NanoHTTPD + Kindle HTML page
-│   ├── service/        ← Foreground service
-│   └── hotspot/        ← IP detection
+│   ├── sftp/            KindleSftpClient
+│   └── thumbnails/      KindleThumbnailGenerator
 └── ui/
-    ├── book/           ← Library screen
-    ├── transfer/       ← Transfer screen
-    └── theme/          ← Material 3 theme
+    ├── book/            Library, transfer bottom sheet, format picker
+    ├── theme/           Material 3 color scheme, typography
+    ├── tools/
+    │   ├── articles/    ArticlesScreen + ViewModel
+    │   ├── dashboard/   DashboardScreen + ViewModel
+    │   ├── dictionaries/DictionariesScreen + ViewModel
+    │   ├── fonts/       FontsScreen + ViewModel
+    │   ├── screensavers/ScreensaverScreen + ViewModel
+    │   ├── sync/        SyncScreen + ViewModel
+    │   └── ToolsScreen.kt
+    ├── MainActivity.kt
+    ├── Navigation.kt
+    └── NavigationKeys.kt
 ```
 
-## Why?
+```
+app/src/test/java/app/pagedrop/
+├── converter/                MobiWriterTest
+├── data/                     DefaultBookRepositoryTest
+├── tools/
+│   ├── articles/             ArticleExtractorTest
+│   ├── screensavers/         KindleModelRegistryTest
+│   └── sync/                 LuaTableParserTest, KoreaderSyncBrokerTest
+├── transfer/thumbnails/      KindleThumbnailGeneratorTest
+└── ui/book/                  BookViewModelTest
+```
 
-In 2025, Amazon ended support for older Kindle devices — no more cloud sync, no more Send-to-Kindle, no more wireless book delivery. The only "official" option is USB sideloading.
+## Build
 
-PageDrop gives these devices a second life. Your phone becomes the bridge that Amazon removed.
+```bash
+export ANDROID_HOME=/path/to/Android/sdk
+./gradlew assembleDebug
+./gradlew testDebugUnitTest
+```
 
-## Contributing
+If Gradle cannot find the Android SDK, configure either `ANDROID_HOME` or
+`local.properties` with:
 
-Contributions welcome! Open an issue or PR.
+```properties
+sdk.dir=/path/to/Android/sdk
+```
 
-## License
+## Documentation
 
-Apache License 2.0 — see [LICENSE](LICENSE)
+- [Implementation plan](implementation_plan.md)
+- [Research and roadmap](next_phase_research.md)
+- [PageDrop server design](pagedrop_server.md)
+- [Kindle and KOReader device paths](device_paths.md)
+- [Current SFTP walkthrough](walkthrough.md)
+- [Current task checklist](task.md)
+- [MOBI header notes](mobi_comparison.md)

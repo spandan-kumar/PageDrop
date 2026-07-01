@@ -16,13 +16,19 @@
 
 package app.pagedrop.ui
 
-import app.pagedrop.ui.book.BookScreen
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import app.pagedrop.ui.book.BookScreen
+import app.pagedrop.ui.tools.dashboard.DashboardScreen
+import app.pagedrop.ui.tools.fonts.FontsScreen
+import app.pagedrop.ui.tools.dictionaries.DictionariesScreen
+import app.pagedrop.ui.tools.screensavers.ScreensaverScreen
+import app.pagedrop.ui.tools.sync.SyncScreen
+import app.pagedrop.ui.tools.articles.ArticlesScreen
 
 @Composable
 fun MainNavigation() {
@@ -35,6 +41,56 @@ fun MainNavigation() {
             entry<Main> {
                 BookScreen(
                     modifier = Modifier.safeDrawingPadding(),
+                    onNavigateToTools = { backStack.addLast(Tools) }
+                )
+            }
+            entry<Tools> {
+                val modifier = Modifier.safeDrawingPadding()
+                ToolsScreen(
+                    modifier = modifier,
+                    onBack = { backStack.removeLastOrNull() },
+                    onNavigateToScreensaver = { backStack.addLast(Screensaver) },
+                    onNavigateToFonts = { backStack.addLast(Fonts) },
+                    onNavigateToDictionaries = { backStack.addLast(Dictionaries) },
+                    onNavigateToDashboard = { backStack.addLast(Dashboard) },
+                    onNavigateToSync = { backStack.addLast(Sync) },
+                    onNavigateToArticles = { backStack.addLast(Articles) }
+                )
+            }
+            entry<Screensaver> {
+                ScreensaverScreen(
+                    modifier = Modifier.safeDrawingPadding(),
+                    onBack = { backStack.removeLastOrNull() }
+                )
+            }
+            entry<Fonts> {
+                FontsScreen(
+                    modifier = Modifier.safeDrawingPadding(),
+                    onBack = { backStack.removeLastOrNull() }
+                )
+            }
+            entry<Dictionaries> {
+                DictionariesScreen(
+                    modifier = Modifier.safeDrawingPadding(),
+                    onBack = { backStack.removeLastOrNull() }
+                )
+            }
+            entry<Dashboard> {
+                DashboardScreen(
+                    modifier = Modifier.safeDrawingPadding(),
+                    onBack = { backStack.removeLastOrNull() }
+                )
+            }
+            entry<Sync> {
+                SyncScreen(
+                    modifier = Modifier.safeDrawingPadding(),
+                    onBack = { backStack.removeLastOrNull() }
+                )
+            }
+            entry<Articles> {
+                ArticlesScreen(
+                    modifier = Modifier.safeDrawingPadding(),
+                    onBack = { backStack.removeLastOrNull() }
                 )
             }
         }

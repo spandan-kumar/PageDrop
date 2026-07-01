@@ -14,10 +14,12 @@
 .externalNativeBuild
 .cxx
 local.properties
-
-# PageDrop Agent / Research / Planning docs
-walkthrough.md
-implementation_plan.md
-task.md
-mobi_comparison.md
-next_phase_research.md
+app/schemas/
+.commandcode/
+/device_paths.md
+/implementation_plan.md
+/mobi_comparison.md
+/next_phase_research.md
+/pagedrop_server.md
+/task.md
+/walkthrough.md

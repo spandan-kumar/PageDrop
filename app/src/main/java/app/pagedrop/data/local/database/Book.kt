@@ -34,6 +34,7 @@ data class Book(
     val format: String, // AZW3, MOBI, PDF, TXT
     val fileSize: Long, // bytes
     val coverPath: String? = null,
+    val kindleUuid: String? = null,
     val addedDate: Long = System.currentTimeMillis(),
     val lastTransferred: Long? = null
 )
@@ -54,4 +55,7 @@ interface BookDao {
 
     @Query("UPDATE book SET lastTransferred = :timestamp WHERE uid = :uid")
     suspend fun updateLastTransferred(uid: Int, timestamp: Long)
+
+    @Query("UPDATE book SET coverPath = :coverPath, kindleUuid = :kindleUuid WHERE uid = :uid")
+    suspend fun updateCoverAndUuid(uid: Int, coverPath: String?, kindleUuid: String)
 }

@@ -23,6 +23,10 @@ class MobiWriter(
     private val coverImage: ByteArray? = null,
     private val images: List<ByteArray> = emptyList()
 ) {
+
+    val kindleUuid: String get() = _kindleUuid
+    private lateinit var _kindleUuid: String
+
     companion object {
         private const val TAG = "MobiWriter"
         private const val RECORD_SIZE = 4096
@@ -269,6 +273,7 @@ class MobiWriter(
         val dos = DataOutputStream(baos)
 
         val uuid = UUID.randomUUID().toString()
+        _kindleUuid = uuid
         val records = mutableListOf<ByteArray>()
         records.add(buildExthRecord(100, author.toByteArray(Charsets.UTF_8)))
         records.add(buildExthRecord(503, title.toByteArray(Charsets.UTF_8)))
