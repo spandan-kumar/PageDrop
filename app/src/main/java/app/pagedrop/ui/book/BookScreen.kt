@@ -29,6 +29,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -93,8 +94,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -672,111 +677,139 @@ internal fun LibraryScreenContent(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            MediumTopAppBar(
-                title = {
-                    Text(
-                        text = "PageDrop",
-                        style = MaterialTheme.typography.titleLarge,
+    Box(modifier = modifier.fillMaxSize()) {
+        // Background image — full-bleed, Kindle aesthetic
+        Image(
+            painter = painterResource(id = R.drawable.bezos_bg),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alpha = 0.85f
+        )
+
+        // Gradient overlay — fades from transparent at top to surface at bottom
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.50f),
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            MaterialTheme.colorScheme.surface
+                        ),
+                        startY = 0f,
+                        endY = Float.POSITIVE_INFINITY
                     )
-                },
-                actions = {
-                    IconButton(onClick = onNavigateToTools) {
-                        Icon(
-                            Icons.Default.Build,
-                            contentDescription = "Tools",
+                )
+        )
+
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                MediumTopAppBar(
+                    title = {
+                        Text(
+                            text = "PageDrop",
+                            style = MaterialTheme.typography.titleLarge,
                         )
+                    },
+                    actions = {
+                        IconButton(onClick = onNavigateToTools) {
+                            Icon(
+                                Icons.Default.Build,
+                                contentDescription = "Tools",
+                            )
+                        }
+                        IconButton(onClick = onAddBookClick) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Add book",
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.mediumTopAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    scrollBehavior = scrollBehavior,
+                )
+            },
+            floatingActionButton = {
+                AnimatedVisibility(
+                    visible = transferQueue.isNotEmpty(),
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it },
+                ) {
+                    FloatingActionButton(
+                        onClick = onOpenTransferSheet,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f),
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = "Transfer")
                     }
-                    IconButton(onClick = onAddBookClick) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Add book",
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.mediumTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-                scrollBehavior = scrollBehavior,
-            )
-        },
-        floatingActionButton = {
-            // FAB only when books are selected
-            AnimatedVisibility(
-                visible = transferQueue.isNotEmpty(),
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it },
-            ) {
-                FloatingActionButton(
-                    onClick = onOpenTransferSheet,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ) {
-                    Icon(Icons.Default.Send, contentDescription = "Transfer")
                 }
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background,
-    ) { innerPadding ->
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            containerColor = Color.Transparent,
+        ) { innerPadding ->
 
-        // Conversion progress at top
-        if (isConverting) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = innerPadding.calculateTopPadding()),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            )
-        }
-
-        when (uiState) {
-            is LibraryUiState.Loading -> {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
+            if (isConverting) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = innerPadding.calculateTopPadding()),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
             }
 
-            is LibraryUiState.Error -> {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "Something went wrong.\n${uiState.throwable.localizedMessage}",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
-
-            is LibraryUiState.Success -> {
-                if (uiState.data.isEmpty()) {
-                    EmptyLibraryState(
-                        modifier = Modifier
+            when (uiState) {
+                is LibraryUiState.Loading -> {
+                    Box(
+                        Modifier
                             .fillMaxSize()
                             .padding(innerPadding),
-                    )
-                } else {
-                    BookList(
-                        books = uiState.data,
-                        transferQueue = transferQueue,
-                        onToggleQueued = onToggleQueued,
-                        onDelete = onDeleteBook,
-                        contentPadding = innerPadding,
-                    )
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                is LibraryUiState.Error -> {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "Something went wrong.\n${uiState.throwable.localizedMessage}",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+
+                is LibraryUiState.Success -> {
+                    if (uiState.data.isEmpty()) {
+                        EmptyLibraryState(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding),
+                        )
+                    } else {
+                        BookList(
+                            books = uiState.data,
+                            transferQueue = transferQueue,
+                            onToggleQueued = onToggleQueued,
+                            onDelete = onDeleteBook,
+                            contentPadding = innerPadding,
+                        )
+                    }
                 }
             }
         }
@@ -796,24 +829,37 @@ private fun EmptyLibraryState(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            imageVector = Icons.Outlined.MenuBook,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.outline,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = "No books yet",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = "Tap + to add",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
+            ),
+            shape = RoundedCornerShape(24.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.MenuBook,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "No books yet",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Tap + to add",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -885,9 +931,9 @@ private fun BookCard(
             ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Row(
             modifier = Modifier
