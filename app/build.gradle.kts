@@ -144,6 +144,4 @@ dependencies {
 
     // WorkManager for background transfers
     implementation(libs.work.runtime)
-    implementation("androidx.hilt:hilt-work:1.2.0")
-    ksp("androidx.hilt:hilt-compiler:1.2.0")
 }

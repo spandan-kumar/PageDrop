@@ -5,40 +5,42 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
-import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
-import androidx.work.workDataOf
-import app.pagedrop.data.KindleSettings
+import app.pagedrop.PageDrop
 import app.pagedrop.data.local.database.AppDatabase
-import app.pagedrop.data.local.database.Book
+import app.pagedrop.data.local.database.BookDao
+import app.pagedrop.data.KindleSettings
 import app.pagedrop.transfer.sftp.KindleSftpClient
-import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.android.EntryPointAccessors
 import java.io.ByteArrayOutputStream
 import java.io.File
-import javax.inject.Inject
 
-@HiltWorker
-class TransferWorker @Inject constructor(
-    @ApplicationContext private val appContext: Context,
-    params: WorkerParameters,
-    private val database: AppDatabase,
-    private val kindleSettings: KindleSettings
+class TransferWorker(
+    appContext: Context,
+    params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
 
     companion object {
         const val TAG = "TransferWorker"
         const val KEY_BOOK_IDS = "book_ids"
-        const val KEY_RESULT = "result"
-        const val RESULT_SUCCESS = "success"
-        const val RESULT_ERROR = "error"
     }
+
+    // Resolve dependencies via Hilt entry point
+    private val database = EntryPointAccessors.fromApplication(
+        appContext, DatabaseEntryPoint::class.java
+    ).appDatabase()
+
+    private val kindleSettings = EntryPointAccessors.fromApplication(
+        appContext, SettingsEntryPoint::class.java
+    ).kindleSettings()
+
+    private val bookDao = database.bookDao()
 
     override suspend fun doWork(): Result {
         val bookIds = inputData.getIntArray(KEY_BOOK_IDS)?.toList() ?: return Result.failure()
-
-        val books = bookIds.mapNotNull { database.bookDao().getBookById(it) }
+        val books = bookIds.mapNotNull { bookDao.getBookById(it) }
         if (books.isEmpty()) return Result.failure()
 
         setForeground(createForegroundInfo("Preparing..."))
@@ -54,55 +56,45 @@ class TransferWorker @Inject constructor(
 
             val result = KindleSftpClient.transferBooks(
                 books = books,
-                host = host,
-                port = port,
-                user = user,
-                pass = pass,
-                directory = dir,
-                triggerRescan = rescan,
+                host = host, port = port, user = user, pass = pass,
+                directory = dir, triggerRescan = rescan,
                 thumbnailBytes = thumbs
             ) { current, total, message ->
-                val progress = if (total > 0) current * 100 / total else 0
-                setProgress(workDataOf("progress" to progress, "message" to message))
                 setForeground(createForegroundInfo(message))
             }
 
             if (result.isSuccess) {
                 val timestamp = System.currentTimeMillis()
-                books.forEach { database.bookDao().updateLastTransferred(it.uid, timestamp) }
-
-                val notification = NotificationHelper.buildCompleteNotification(appContext, books.size)
-                NotificationManagerCompat.from(appContext).notify(
-                    NotificationHelper.COMPLETE_NOTIFICATION_ID,
-                    notification.build()
+                books.forEach { bookDao.updateLastTransferred(it.uid, timestamp) }
+                val notification = NotificationHelper.buildCompleteNotification(applicationContext, books.size)
+                NotificationManagerCompat.from(applicationContext).notify(
+                    NotificationHelper.COMPLETE_NOTIFICATION_ID, notification.build()
                 )
-                Result.success(workDataOf(KEY_RESULT to RESULT_SUCCESS))
+                Result.success()
             } else {
                 val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
-                val notification = NotificationHelper.buildErrorNotification(appContext, error, books.firstOrNull()?.title ?: "")
-                NotificationManagerCompat.from(appContext).notify(
-                    NotificationHelper.PROGRESS_NOTIFICATION_ID,
-                    notification.build()
+                val notification = NotificationHelper.buildErrorNotification(applicationContext, error, books.firstOrNull()?.title ?: "")
+                NotificationManagerCompat.from(applicationContext).notify(
+                    NotificationHelper.PROGRESS_NOTIFICATION_ID, notification.build()
                 )
                 Result.retry()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Transfer failed: ${e.message}", e)
-            val notification = NotificationHelper.buildErrorNotification(appContext, e.localizedMessage ?: "Error", "")
-            NotificationManagerCompat.from(appContext).notify(
-                NotificationHelper.PROGRESS_NOTIFICATION_ID,
-                notification.build()
+            val notification = NotificationHelper.buildErrorNotification(applicationContext, e.localizedMessage ?: "Error", "")
+            NotificationManagerCompat.from(applicationContext).notify(
+                NotificationHelper.PROGRESS_NOTIFICATION_ID, notification.build()
             )
             return if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
     }
 
     private suspend fun createForegroundInfo(message: String): ForegroundInfo {
-        val notification = NotificationHelper.buildProgressNotification(appContext, 0, 1, message).build()
+        val notification = NotificationHelper.buildProgressNotification(applicationContext, 0, 1, message).build()
         return ForegroundInfo(NotificationHelper.PROGRESS_NOTIFICATION_ID, notification)
     }
 
-    private fun prepareThumbnails(books: List<Book>): Map<Int, ByteArray> {
+    private fun prepareThumbnails(books: List<app.pagedrop.data.local.database.Book>): Map<Int, ByteArray> {
         val thumbs = mutableMapOf<Int, ByteArray>()
         books.forEach { book ->
             book.coverPath?.let { path ->
