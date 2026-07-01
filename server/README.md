@@ -1,0 +1,146 @@
+# PageDrop Server
+
+Conversion worker that pairs with the PageDrop Android app. Handles heavy
+ebook conversion (Calibre CLI) and article extraction when the app decides
+it can't do the conversion locally.
+
+**Architecture:** Supabase (auth, DB, storage, API) + Worker (Calibre on Oracle free tier)
+
+## Architecture
+
+```
+Android App → Supabase Edge Functions → Postgres queue → Worker (polls) → Calibre CLI
+                              ↕                               ↕
+                     Supabase Storage                  Uploads result
+```
+
+- **Supabase** handles auth, database, file storage, and the REST API
+- **Worker** runs on Oracle Cloud free tier (or any Linux box), polls for pending jobs
+- **Calibre CLI** does the actual conversion
+
+## Deploy
+
+### 1. Supabase Setup
+
+1. Go to [supabase.com](https://supabase.com) and create a project
+2. Open the SQL Editor and run `server/db/migrations/001_schema.sql` — creates all tables, indexes, RLS policies, and the auto-profile trigger
+3. Go to **Storage** and create two buckets:
+   - `sources` — private (only service_role can read)
+   - `artifacts` — public read (users download their results)
+4. Go to **Authentication → Settings** and enable Anonymous Sign-Ins (for quick start) or configure Email/password auth
+5. Go to **SQL Editor** and grant worker permissions:
+
+```sql
+grant usage on schema public to service_role;
+grant all on all tables in schema public to service_role;
+grant all on all functions in schema public to service_role;
+```
+
+6. Deploy the Edge Function:
+
+```bash
+# Install Supabase CLI
+npm install -g supabase
+
+# Link to your project
+supabase link --project-ref <your-project-ref>
+
+# Deploy
+supabase functions deploy create-job --no-verify-jwt
+```
+
+### 2. Worker Setup (Oracle Cloud Free Tier)
+
+1. Provision an Oracle Cloud Ampere A1 instance (Ubuntu 24.04 ARM64)
+2. Install Docker:
+
+```bash
+sudo apt update && sudo apt install -y docker.io docker-compose-v2
+sudo usermod -aG docker ubuntu
+```
+
+3. Copy the worker to the instance:
+
+```bash
+scp -r server/ ubuntu@<oracle-ip>:~/pagedrop-server
+```
+
+4. Set environment variables and start:
+
+```bash
+cd ~/pagedrop-server/docker
+export SUPABASE_URL="https://<project>.supabase.co"
+export SUPABASE_SERVICE_KEY="<service_role_key>"
+docker compose up -d
+```
+
+5. Verify:
+
+```bash
+docker compose logs -f
+```
+
+### 3. Android App Setup
+
+1. In the app, go to **Tools → Connection** (or the server settings flow)
+2. Enable "Server-Assisted Mode"
+3. Enter your Supabase URL and anon key (from Settings → API)
+4. The app will anonymously sign in and start checking health
+
+## API (via Supabase Edge Functions)
+
+### `POST create-job`
+
+Creates a conversion job in the queue. Requires auth token.
+
+**Request:**
+```json
+{
+  "jobType": "convert",
+  "targetFormat": "mobi",
+  "targetProfile": "kindle-stock",
+  "fileSizeBytes": 5000000
+}
+```
+
+**Response (201):**
+```json
+{ "jobId": "uuid", "status": "pending" }
+```
+
+**Errors:**
+- `401` — Unauthorized
+- `429` — Daily job limit reached
+- `413` — File exceeds 100MB
+
+### Job Status
+
+Poll `GET /rest/v1/jobs?id=eq.{jobId}` via Supabase PostgREST.
+
+The app uses the Supabase Kotlin SDK to query job status directly.
+
+## Limits (Free Tier)
+
+| Limit | Free | Pro |
+|-------|------|-----|
+| Conversions/day | 20 | Unlimited |
+| Max file size | 100 MB | 500 MB |
+| Storage per user | 500 MB | 5 GB |
+| Artifact TTL | 24 hours | 7 days |
+| Queue priority | Normal | High |
+
+## Worker Details
+
+The worker is a Python script (`server/worker/poll.py`) that:
+
+1. Polls Supabase for `pending` jobs (oldest first)
+2. Atomically claims a job (sets status to `processing`)
+3. Downloads the source file from Supabase Storage
+4. Runs `ebook-convert` to the target format
+5. Extracts cover with `ebook-meta --get-cover`
+6. Uploads results to Supabase Storage
+7. Updates job status to `complete` or `failed`
+8. Sleeps 5 seconds, repeats
+
+Concurrent jobs are limited to 1 by default to stay within free-tier
+Oracle limits.

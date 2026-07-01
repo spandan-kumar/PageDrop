@@ -4,18 +4,19 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.gotrue.Auth
+import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.File
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,199 +31,126 @@ class PageDropApiClient @Inject constructor(
         private const val MAX_POLL_RETRIES = 45
     }
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json { ignoreUnknownKeys = true }
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .build()
-
-    private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
-    private val OCTET_MEDIA = "application/octet-stream".toMediaType()
+    private val supabase: SupabaseClient? by lazy {
+        if (!serverSettings.isConfigured) null
+        else createSupabaseClient(
+            supabaseUrl = serverSettings.supabaseUrl,
+            supabaseKey = serverSettings.supabaseAnonKey
+        ) {
+            install(Auth)
+        }
+    }
 
     val isAvailable: Boolean get() = serverSettings.isConfigured
 
-    suspend fun checkHealth(): HealthResponse? = withContext(Dispatchers.IO) {
+    suspend fun signInAnonymously(): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val req = buildGetRequest("/v1/health")
-            val response = client.newCall(req).execute()
-            if (response.isSuccessful) {
-                response.body?.string()?.let { json.decodeFromString<HealthResponse>(it) }
-            } else null
+            val client = supabase ?: return@withContext Result.failure(IllegalStateException("Not configured"))
+            val session = client.auth.signInAnonymously()
+            Result.success(session.accessToken)
         } catch (e: Exception) {
-            Log.w(TAG, "Health check failed: ${e.message}")
+            Log.e(TAG, "Auth failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun signIn(email: String, password: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val client = supabase ?: return@withContext Result.failure(IllegalStateException("Not configured"))
+            val session = client.auth.signInWith(email, password)
+            Result.success(session.accessToken)
+        } catch (e: Exception) {
+            Log.e(TAG, "Email auth failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createConvertJob(
+        uri: Uri,
+        targetFormat: String = "mobi",
+        title: String? = null,
+        author: String? = null
+    ): JobResponse? = withContext(Dispatchers.IO) {
+        try {
+            val client = supabase ?: return@withContext null
+            val token = client.auth.currentAccessTokenOrNull() ?: return@withContext null
+            val userId = client.auth.currentUserOrNull()?.id ?: return@withContext null
+
+            val sourceBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return@withContext null
+            val fileName = uri.lastPathSegment ?: "upload_${System.currentTimeMillis()}"
+            val storagePath = "$userId/sources/$fileName"
+            client.storage.from("sources").upload(storagePath, sourceBytes)
+
+            val body = buildJsonObject {
+                put("jobType", "convert")
+                put("targetFormat", targetFormat)
+                title?.let { put("title", it) }
+                author?.let { put("author", it) }
+                put("fileSizeBytes", sourceBytes.size.toLong())
+            }
+
+            val response = client.functions.invoke("create-job", body = body.toString())
+            json.decodeFromString<JobResponse>(response)
+        } catch (e: Exception) {
+            Log.e(TAG, "Create job failed: ${e.message}", e)
             null
+        }
+    }
+
+    suspend fun createArticleJob(url: String): JobResponse? = withContext(Dispatchers.IO) {
+        try {
+            val client = supabase ?: return@withContext null
+            val body = buildJsonObject {
+                put("jobType", "article")
+                put("url", url)
+                put("targetFormat", "mobi")
+            }
+            val response = client.functions.invoke("create-job", body = body.toString())
+            json.decodeFromString<JobResponse>(response)
+        } catch (e: Exception) {
+            Log.e(TAG, "Create article job failed: ${e.message}", e)
+            null
+        }
+    }
+
+    suspend fun pollJob(jobId: String): JobStatus? = withContext(Dispatchers.IO) {
+        try {
+            val client = supabase ?: return@withContext null
+            var retries = 0
+            while (retries < MAX_POLL_RETRIES) {
+                delay(POLL_INTERVAL_MS)
+                val results = client.postgrest["jobs"]
+                    .select { eq("id", jobId) }
+                    .decodeList<JobStatus>()
+                val status = results.firstOrNull() ?: continue
+                if (status.status in listOf("complete", "failed")) return@withContext status
+                retries++
+            }
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Poll failed: ${e.message}", e)
+            null
+        }
+    }
+
+    suspend fun downloadArtifact(storagePath: String, outputFile: File): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val client = supabase ?: return@withContext false
+            val bytes = client.storage.from("artifacts").download(storagePath)
+            outputFile.outputStream().use { it.write(bytes) }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Download failed: ${e.message}", e)
+            false
         }
     }
 
     suspend fun shouldUseServer(format: String): Boolean {
         if (!serverSettings.isConfigured) return false
         val nativeFormats = setOf("AZW3", "MOBI", "PRC")
-        if (format.uppercase() in nativeFormats) return false
-        val health = checkHealth() ?: return false
-        return health.ok && health.workers["calibreCli"] == true
-    }
-
-    suspend fun convertBook(uri: Uri, outputFormat: String = "mobi"): ServerJob = withContext(Dispatchers.IO) {
-        val sourceFile = copyUriToTemp(uri)
-            ?: throw IllegalStateException("Failed to copy URI to temp file")
-
-        try {
-            val requestBody = MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("targetProfile", "kindle-stock")
-                .addFormDataPart("outputFormat", outputFormat)
-                .addFormDataPart("includeCover", "true")
-                .addFormDataPart(
-                    "file",
-                    sourceFile.name,
-                    sourceFile.asRequestBody(OCTET_MEDIA)
-                )
-                .build()
-
-            val req = buildPostRequest("/v1/convert", body = requestBody)
-                ?: error("Not configured")
-
-            val response = client.newCall(req).execute()
-            if (!response.isSuccessful) {
-                throw IllegalStateException("Convert failed: ${response.code} ${response.message}")
-            }
-
-            val job = response.body?.string()?.let {
-                json.decodeFromString<JobResponse>(it)
-            } ?: throw IllegalStateException("Empty response")
-
-            val coverDir = File(context.filesDir, "covers")
-            if (!coverDir.exists()) coverDir.mkdirs()
-
-            ServerJob(
-                jobId = job.jobId,
-                artifactFile = File(context.cacheDir, "pagedrop_dl_${job.jobId}.$outputFormat"),
-                coverFile = File(coverDir, "${job.jobId}_cover.jpg")
-            )
-        } finally {
-            sourceFile.delete()
-        }
-    }
-
-    suspend fun pollJob(jobId: String): JobStatus? = withContext(Dispatchers.IO) {
-        var retries = 0
-        while (retries < MAX_POLL_RETRIES) {
-            delay(POLL_INTERVAL_MS)
-            try {
-                val req = buildGetRequest("/v1/jobs/$jobId")
-                val response = client.newCall(req).execute()
-                if (response.isSuccessful) {
-                    val body = response.body?.string() ?: continue
-                    val status = json.decodeFromString<JobStatus>(body)
-                    if (status.status != "queued") return@withContext status
-                }
-            } catch (_: Exception) { }
-            retries++
-        }
-        null
-    }
-
-    suspend fun downloadArtifact(artifactId: String, outputFile: File): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val req = buildGetRequest("/v1/artifacts/$artifactId")
-            val response = client.newCall(req).execute()
-            if (response.isSuccessful) {
-                response.body?.byteStream()?.use { input ->
-                    outputFile.outputStream().use { output -> input.copyTo(output) }
-                }
-                true
-            } else false
-        } catch (e: Exception) {
-            Log.e(TAG, "Artifact download failed: ${e.message}", e)
-            false
-        }
-    }
-
-    suspend fun downloadCover(coverId: String, outputFile: File): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val req = buildGetRequest("/v1/artifacts/$coverId")
-            val response = client.newCall(req).execute()
-            if (response.isSuccessful) {
-                response.body?.byteStream()?.use { input ->
-                    outputFile.outputStream().use { output -> input.copyTo(output) }
-                }
-                true
-            } else false
-        } catch (e: Exception) {
-            Log.e(TAG, "Cover download failed: ${e.message}", e)
-            false
-        }
-    }
-
-    suspend fun convertArticle(url: String): ServerJob = withContext(Dispatchers.IO) {
-        val body = json.encodeToString(
-            ArticleConvertRequest.serializer(),
-            ArticleConvertRequest(url = url)
-        ).toRequestBody(JSON_MEDIA)
-
-        val req = buildPostRequest("/v1/articles/convert", body = body)
-            ?: error("Not configured")
-
-        val response = client.newCall(req).execute()
-        if (!response.isSuccessful) {
-            throw IllegalStateException("Article convert failed: ${response.code}")
-        }
-
-        val job = response.body?.string()?.let {
-            json.decodeFromString<JobResponse>(it)
-        } ?: throw IllegalStateException("Empty response")
-
-        val coverDir = File(context.filesDir, "covers")
-        if (!coverDir.exists()) coverDir.mkdirs()
-
-        ServerJob(
-            jobId = job.jobId,
-            artifactFile = File(context.cacheDir, "pagedrop_article_${job.jobId}.mobi"),
-            coverFile = File(coverDir, "${job.jobId}_cover.jpg")
-        )
-    }
-
-    private fun buildGetRequest(path: String): Request {
-        val url = serverSettings.serverUrl.trimEnd('/') + path
-        return Request.Builder()
-            .url(url)
-            .header("Authorization", "Bearer ${serverSettings.apiToken}")
-            .get()
-            .build()
-    }
-
-    private fun buildPostRequest(
-        path: String,
-        body: okhttp3.RequestBody = "".toRequestBody(null)
-    ): Request? {
-        if (!serverSettings.isConfigured) return null
-        val url = serverSettings.serverUrl.trimEnd('/') + path
-        return Request.Builder()
-            .url(url)
-            .header("Authorization", "Bearer ${serverSettings.apiToken}")
-            .post(body)
-            .build()
-    }
-
-    private fun copyUriToTemp(uri: Uri): File? {
-        return try {
-            val ext = uri.lastPathSegment?.substringAfterLast(".", "") ?: "tmp"
-            val tempFile = File(context.cacheDir, "pagedrop_upload_${System.currentTimeMillis()}.$ext")
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                tempFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            tempFile
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to copy URI: ${e.message}", e)
-            null
-        }
+        return format.uppercase() !in nativeFormats
     }
 }
-
-data class ServerJob(
-    val jobId: String,
-    val artifactFile: File,
-    val coverFile: File
-)

@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  worker:
+    build:
+      context: ../worker
+      dockerfile: ../docker/Dockerfile
+    environment:
+      SUPABASE_URL: "${SUPABASE_URL}"
+      SUPABASE_SERVICE_KEY: "${SUPABASE_SERVICE_KEY}"
+      POLL_INTERVAL: "5"
+      MAX_CONCURRENT: "1"
+      JOB_TIMEOUT: "300"
+    restart: unless-stopped
+    volumes:
+      - /tmp/pagedrop-artifacts:/tmp/pagedrop-artifacts

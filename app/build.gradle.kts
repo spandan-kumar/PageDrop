@@ -136,6 +136,13 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
 
+    // Supabase
+    implementation("io.github.jan-tennert.supabase:bom:3.1.2")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:3.1.2")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.1.2")
+    implementation("io.github.jan-tennert.supabase:storage-kt:3.1.2")
+    implementation("io.ktor:ktor-client-core:3.1.0")
+
     // Archive extraction for dictionary/font installers
     implementation("org.apache.commons:commons-compress:1.27.1")
 
