@@ -59,11 +59,7 @@ class TransferWorker(
                 host = host, port = port, user = user, pass = pass,
                 directory = dir, triggerRescan = rescan,
                 thumbnailBytes = thumbs
-            ) { _: Int, _: Int, message: String ->
-                kotlinx.coroutines.GlobalScope.launch {
-                    try { setForeground(createForegroundInfo(message)) } catch (_: Exception) { }
-                }
-            }
+            ) { _: Int, _: Int, _: String -> }
 
             if (result.isSuccess) {
                 val timestamp = System.currentTimeMillis()
