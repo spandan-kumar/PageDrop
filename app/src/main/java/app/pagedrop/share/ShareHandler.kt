@@ -129,7 +129,7 @@ object ShareHandler {
         val mobiFile = File(textsDir, "$baseName.mobi")
         val result = BookConverter.convertToMobi(application, txtFile, mobiFile)
         txtFile.delete()
-        if (!result) return false
+        if (!result.success) return false
         bookRepository.addBookFromFile(
             Book(
                 title = "Shared Note",

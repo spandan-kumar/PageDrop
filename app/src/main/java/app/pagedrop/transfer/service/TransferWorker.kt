@@ -59,8 +59,10 @@ class TransferWorker(
                 host = host, port = port, user = user, pass = pass,
                 directory = dir, triggerRescan = rescan,
                 thumbnailBytes = thumbs
-            ) { current, total, message ->
-                setForeground(createForegroundInfo(message))
+            ) { _: Int, _: Int, message: String ->
+                kotlinx.coroutines.GlobalScope.launch {
+                    try { setForeground(createForegroundInfo(message)) } catch (_: Exception) { }
+                }
             }
 
             if (result.isSuccess) {
@@ -70,14 +72,14 @@ class TransferWorker(
                 NotificationManagerCompat.from(applicationContext).notify(
                     NotificationHelper.COMPLETE_NOTIFICATION_ID, notification.build()
                 )
-                Result.success()
+                return Result.success()
             } else {
                 val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
                 val notification = NotificationHelper.buildErrorNotification(applicationContext, error, books.firstOrNull()?.title ?: "")
                 NotificationManagerCompat.from(applicationContext).notify(
                     NotificationHelper.PROGRESS_NOTIFICATION_ID, notification.build()
                 )
-                Result.retry()
+                return Result.retry()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Transfer failed: ${e.message}", e)
