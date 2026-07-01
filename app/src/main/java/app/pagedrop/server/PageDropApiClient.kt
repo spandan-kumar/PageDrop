@@ -6,7 +6,9 @@ import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.gotrue.Auth
+import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.storage
@@ -40,6 +42,7 @@ class PageDropApiClient @Inject constructor(
             supabaseKey = serverSettings.supabaseAnonKey
         ) {
             install(Auth)
+            install(Functions)
         }
     }
 
@@ -59,7 +62,7 @@ class PageDropApiClient @Inject constructor(
     suspend fun signIn(email: String, password: String): Result<String> = withContext(Dispatchers.IO) {
         try {
             val client = supabase ?: return@withContext Result.failure(IllegalStateException("Not configured"))
-            val session = client.auth.signInWith(email, password)
+            val session = client.auth.signInWith(Email(email, password))
             Result.success(session.accessToken)
         } catch (e: Exception) {
             Log.e(TAG, "Email auth failed: ${e.message}", e)
@@ -93,7 +96,7 @@ class PageDropApiClient @Inject constructor(
             }
 
             val response = client.functions.invoke("create-job", body = body.toString())
-            json.decodeFromString<JobResponse>(response)
+            json.decodeFromString<JobResponse>(response.data)
         } catch (e: Exception) {
             Log.e(TAG, "Create job failed: ${e.message}", e)
             null
@@ -109,7 +112,7 @@ class PageDropApiClient @Inject constructor(
                 put("targetFormat", "mobi")
             }
             val response = client.functions.invoke("create-job", body = body.toString())
-            json.decodeFromString<JobResponse>(response)
+            json.decodeFromString<JobResponse>(response.data)
         } catch (e: Exception) {
             Log.e(TAG, "Create article job failed: ${e.message}", e)
             null

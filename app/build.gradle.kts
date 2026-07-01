@@ -137,11 +137,15 @@ dependencies {
     implementation(libs.okhttp)
 
     // Supabase
-    implementation("io.github.jan-tennert.supabase:bom:3.1.2")
-    implementation("io.github.jan-tennert.supabase:gotrue-kt:3.1.2")
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.1.2")
-    implementation("io.github.jan-tennert.supabase:storage-kt:3.1.2")
-    implementation("io.ktor:ktor-client-core:3.1.0")
+    implementation("io.github.jan-tennert.supabase:supabase-kt:2.7.4")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:2.7.4")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:2.7.4")
+    implementation("io.github.jan-tennert.supabase:storage-kt:2.7.4")
+    implementation("io.github.jan-tennert.supabase:functions-kt:2.7.4")
+    implementation("io.ktor:ktor-client-android:2.3.12")
+    implementation("io.ktor:ktor-client-serialization:2.3.12")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.12")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
 
     // Archive extraction for dictionary/font installers
     implementation("org.apache.commons:commons-compress:1.27.1")
