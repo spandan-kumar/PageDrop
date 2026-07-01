@@ -96,7 +96,7 @@ class PageDropApiClient @Inject constructor(
             }
 
             val response = client.functions.invoke("create-job", body = body.toString())
-            json.decodeFromString<JobResponse>(response.data)
+            json.decodeFromString<JobResponse>(response)
         } catch (e: Exception) {
             Log.e(TAG, "Create job failed: ${e.message}", e)
             null
@@ -112,7 +112,7 @@ class PageDropApiClient @Inject constructor(
                 put("targetFormat", "mobi")
             }
             val response = client.functions.invoke("create-job", body = body.toString())
-            json.decodeFromString<JobResponse>(response.data)
+            json.decodeFromString<JobResponse>(response)
         } catch (e: Exception) {
             Log.e(TAG, "Create article job failed: ${e.message}", e)
             null
