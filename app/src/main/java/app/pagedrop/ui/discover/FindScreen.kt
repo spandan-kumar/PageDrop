@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
@@ -75,6 +76,7 @@ fun FindScreen(
     onBack: () -> Unit,
     onSendBook: (Book) -> Unit,
     onOpenSources: () -> Unit,
+    onOpenCatalog: (catalogId: String, feedUrl: String?) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = hiltViewModel(),
     sourcesViewModel: app.pagedrop.ui.settings.BookSourcesViewModel = hiltViewModel(),
@@ -82,6 +84,7 @@ fun FindScreen(
     val showShadow by sourcesViewModel.showShadowLibraries.collectAsStateWithLifecycle()
     val search by viewModel.search.collectAsStateWithLifecycle()
     val recent by viewModel.recent.collectAsStateWithLifecycle()
+    val catalogs by viewModel.catalogs.collectAsStateWithLifecycle()
     val library by viewModel.libraryBooks.collectAsStateWithLifecycle()
     val selected by viewModel.selected.collectAsStateWithLifecycle()
     val action by viewModel.action.collectAsStateWithLifecycle()
@@ -170,6 +173,11 @@ fun FindScreen(
                 if (results != null && results.errors.isNotEmpty()) {
                     item { SourceErrorChips(results.errors) }
                 }
+                if (results != null && results.catalogMenus.isNotEmpty()) {
+                    items(results.catalogMenus, key = { "menu:${it.catalogId}" }) { menu ->
+                        CatalogMenuRow(menu) { onOpenCatalog(menu.catalogId, menu.feedUrl) }
+                    }
+                }
                 when {
                     results != null && results.results.isNotEmpty() -> items(results.results, key = { it.id }) { r ->
                         ResultRow(
@@ -179,6 +187,7 @@ fun FindScreen(
                             onClick = { keyboard?.hide(); viewModel.select(r) },
                         )
                     }
+                    results != null && results.catalogMenus.isNotEmpty() -> Unit
                     results != null && !search.searching -> item {
                         NoticeText(
                             if (results.errors.isNotEmpty()) "Nothing found, and some sources couldn’t be reached."
@@ -189,6 +198,8 @@ fun FindScreen(
                     !search.searching -> item {
                         IdleContent(
                             recent = recent,
+                            catalogs = catalogs,
+                            onOpenCatalog = { onOpenCatalog(it, null) },
                             hasSources = search.hasSources,
                             onRecent = { viewModel.onQueryChange(it); submit(it) },
                             onClearRecent = viewModel::clearRecent,
@@ -268,6 +279,8 @@ private fun SourceErrorChips(errors: List<SourceError>) {
 @Composable
 private fun IdleContent(
     recent: List<String>,
+    catalogs: List<app.pagedrop.discover.OpdsCatalog>,
+    onOpenCatalog: (String) -> Unit,
     hasSources: Boolean,
     onRecent: (String) -> Unit,
     onClearRecent: () -> Unit,
@@ -284,6 +297,26 @@ private fun IdleContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     TextButton(onClick = onOpenSources) { Text("Book sources") }
+                }
+            }
+        }
+        if (catalogs.isNotEmpty()) {
+            Text(
+                "YOUR CATALOGS",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            catalogs.forEach { c ->
+                HairlineCard(Modifier.fillMaxWidth(), onClick = { onOpenCatalog(c.id) }) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(c.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("Browse this catalog", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
@@ -321,6 +354,30 @@ private fun IdleContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/** "<Catalog>: N search options": the catalog answered with a menu, so the user picks where to look. */
+internal fun catalogMenuTitle(menu: app.pagedrop.discover.CatalogMenu): String =
+    "${menu.catalogName}: ${menu.optionCount} search option${if (menu.optionCount == 1) "" else "s"}"
+
+@Composable
+private fun CatalogMenuRow(menu: app.pagedrop.discover.CatalogMenu, onClick: () -> Unit) {
+    HairlineCard(Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(catalogMenuTitle(menu), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    menu.optionTitles.take(3).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
