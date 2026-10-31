@@ -28,6 +28,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
@@ -66,10 +68,8 @@ fun SettingsScreen(
     val autoUpdate by viewModel.autoUpdate.collectAsState()
     val updateStatus by viewModel.updateStatus.collectAsState()
     val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        viewModel.refresh()
-        if (BuildConfig.SELF_UPDATE) viewModel.onResumed()
-    }
+    LaunchedEffect(Unit) { viewModel.refresh() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (BuildConfig.SELF_UPDATE) viewModel.onResumed() }
 
     Scaffold(
         modifier = modifier,
@@ -258,6 +258,11 @@ fun SettingsScreen(
                             }
                             Switch(checked = autoUpdate, onCheckedChange = viewModel::updateAutoUpdate)
                         }
+                        Text(
+                            app.pagedrop.update.UpdatePrompts.EXPLANATION,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Column {
                             Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
                             Text(

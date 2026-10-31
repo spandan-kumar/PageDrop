@@ -89,18 +89,8 @@ class AndroidApkInstaller(private val context: Context) : ApkInstaller {
 }
 
 class AndroidUpdateNotifier(private val context: Context) : UpdateNotifier {
-    override fun needsPermission(version: String) {
-        val intent = allowInstallsIntent(context)
-        notify(
-            NOTIFICATION_PERMISSION,
-            "Allow PageDrop to install updates",
-            "PageDrop $version is available.",
-            PendingIntent.getActivity(context, NOTIFICATION_PERMISSION, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE),
-        )
-    }
-
     /** [confirm] is the system's install confirmation screen; tapping the notification opens it. */
-    fun readyToInstall(version: String, confirm: Intent) {
+    override fun readyToInstall(version: String, confirm: Intent) {
         notify(
             NOTIFICATION_READY,
             "PageDrop $version is ready to install",
@@ -128,7 +118,6 @@ class AndroidUpdateNotifier(private val context: Context) : UpdateNotifier {
     private companion object {
         const val CHANNEL_ID = "pagedrop_updates"
         const val NOTIFICATION_READY = 2001
-        const val NOTIFICATION_PERMISSION = 2002
     }
 }
 
@@ -148,13 +137,10 @@ class InstallResultReceiver : BroadcastReceiver() {
                 @Suppress("DEPRECATION")
                 val confirm = (if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
                 else intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)) ?: return
-                manager.onInstallNeedsConfirmation()
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (inForeground(context)) {
-                    runCatching { context.startActivity(confirm) }
-                        .onFailure { Log.w(TAG, "Couldn't open the install screen: ${it.message}") }
-                } else {
-                    AndroidUpdateNotifier(context).readyToInstall(entry.updateSettings().readyVersion ?: "", confirm)
+                manager.onInstallNeedsConfirmation(confirm, inForeground(context)) {
+                    runCatching { context.startActivity(it) }
+                        .onFailure { e -> Log.w(TAG, "Couldn't open the install screen: ${e.message}") }
                 }
             }
             PackageInstaller.STATUS_SUCCESS -> Unit // The new version replaces this process.

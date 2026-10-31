@@ -28,8 +28,8 @@ class UpdateManagerTest {
     }
 
     private class FakeNotifier : UpdateNotifier {
-        val permissionPrompts = mutableListOf<String>()
-        override fun needsPermission(version: String) { permissionPrompts += version }
+        val posted = mutableListOf<String>()
+        override fun readyToInstall(version: String, confirm: android.content.Intent) { posted += version }
     }
 
     private inner class Rig(
@@ -51,6 +51,7 @@ class UpdateManagerTest {
         val manager = UpdateManager(
             enabledBuild = enabledBuild,
             currentVersionName = "0.9.6",
+            currentVersionCode = 20,
             http = http,
             settings = settings,
             verifier = { ApkVerifier(installedFacts, { facts }) },
@@ -60,7 +61,7 @@ class UpdateManagerTest {
             dir = dir,
             now = { 1_000L },
         )
-        fun run(user: Boolean) = runBlocking { manager.run(user) }
+        fun run(user: Boolean, installAfter: Boolean = false) = runBlocking { manager.run(user, installAfter) }
     }
 
     @Test fun aBuildWithoutSelfUpdateNeverTouchesTheNetwork() {
@@ -121,15 +122,37 @@ class UpdateManagerTest {
         val rig = Rig(installer = FakeInstaller(allowed = false))
         rig.run(user = false)
         assertEquals(UpdateStatus.NeedsPermission("0.9.7"), rig.manager.status.value)
-        assertEquals(listOf("0.9.7"), rig.notifier.permissionPrompts)
+        assertTrue(rig.notifier.posted.isEmpty()) // no cold notification from the scheduler path
+        assertEquals("0.9.7", rig.settings.permissionVersion)
         assertFalse(rig.http.requests.any { it.first.endsWith(".apk") })
 
         rig.run(user = true)
-        assertEquals(listOf("0.9.7"), rig.notifier.permissionPrompts) // the button doesn't notify
+        assertTrue(rig.notifier.posted.isEmpty())
         assertFalse(rig.http.requests.any { it.first.endsWith(".apk") })
 
         rig.installer.allowed = true
         assertTrue(rig.manager.permissionMayHaveChanged())
+        assertEquals(null, rig.settings.permissionVersion)
+
+        // Back from the allow screen: download if needed and install straight away.
+        rig.run(user = true, installAfter = true)
+        assertEquals(listOf("0.9.7"), rig.installer.installed)
+    }
+
+    @Test fun theWaitingUpdateSurvivesARestart() {
+        val rig = Rig(installer = FakeInstaller(allowed = false))
+        rig.run(user = false)
+        val restarted = UpdateManager(
+            true, "0.9.6", 20, rig.http, rig.settings, { ApkVerifier(installedFacts, { null }) },
+            rig.installer, rig.notifier, { false }, rig.dir,
+        )
+        assertEquals(UpdateStatus.NeedsPermission("0.9.7"), restarted.status.value)
+    }
+
+    @Test fun nothingIsPostedWhenAnUpdateInstallsNormally() {
+        val rig = Rig()
+        rig.run(user = false)
+        assertTrue(rig.notifier.posted.isEmpty())
     }
 
     @Test fun reusesAVerifiedDownloadForTheSameVersion() {

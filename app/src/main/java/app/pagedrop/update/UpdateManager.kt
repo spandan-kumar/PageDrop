@@ -1,6 +1,7 @@
 package app.pagedrop.update
 
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.util.Log
 import app.pagedrop.BuildConfig
@@ -27,8 +28,9 @@ interface ApkInstaller {
     fun install(file: File, version: String)
 }
 
+/** The only update notification: an install the user already allowed that still needs a tap. */
 interface UpdateNotifier {
-    fun needsPermission(version: String)
+    fun readyToInstall(version: String, confirm: Intent)
 }
 
 /**
@@ -39,6 +41,7 @@ interface UpdateNotifier {
 class UpdateManager internal constructor(
     private val enabledBuild: Boolean,
     private val currentVersionName: String,
+    private val currentVersionCode: Long,
     private val http: DiscoverHttp,
     private val settings: UpdateSettings,
     private val verifier: () -> ApkVerifier,
@@ -52,6 +55,7 @@ class UpdateManager internal constructor(
     constructor(@ApplicationContext context: Context, http: DiscoverHttp, settings: UpdateSettings) : this(
         enabledBuild = BuildConfig.SELF_UPDATE,
         currentVersionName = BuildConfig.VERSION_NAME,
+        currentVersionCode = BuildConfig.VERSION_CODE.toLong(),
         http = http,
         settings = settings,
         verifier = {
@@ -71,6 +75,12 @@ class UpdateManager internal constructor(
     val status: StateFlow<UpdateStatus> = _status.asStateFlow()
 
     private fun initialStatus(): UpdateStatus {
+        val waiting = settings.permissionVersion
+        val currentVersion = AppVersion.parse(currentVersionName)
+        if (enabledBuild && waiting != null &&
+            AppVersion.parse(waiting)?.let { v -> currentVersion?.let(v::isNewerThan) } == true &&
+            !installer.canInstall()
+        ) return UpdateStatus.NeedsPermission(waiting)
         val ready = settings.readyVersion
         val readyNewer = ready != null &&
             AppVersion.parse(ready)?.let { v -> AppVersion.parse(currentVersionName)?.let(v::isNewerThan) } == true
@@ -85,12 +95,17 @@ class UpdateManager internal constructor(
      * One check. A scheduled run ([userInitiated] false) installs what it finds, only downloads on an unmetered
      * network and stays quiet about errors; a run from the button downloads on any network and stops at "ready".
      */
-    suspend fun run(userInitiated: Boolean) {
+    suspend fun run(userInitiated: Boolean, installAfter: Boolean = false) {
         if (!enabledBuild) return
-        mutex.withLock { withContext(Dispatchers.IO) { runLocked(userInitiated) } }
+        mutex.withLock { withContext(Dispatchers.IO) { runLocked(userInitiated, installAfter) } }
     }
 
-    private suspend fun runLocked(userInitiated: Boolean) {
+    /** Call on app start: announces "Updated to x" once after the version code goes up. */
+    fun onAppStart() {
+        if (enabledBuild) settings.noteLaunch(currentVersionCode, currentVersionName)
+    }
+
+    private suspend fun runLocked(userInitiated: Boolean, installAfter: Boolean) {
         val before = _status.value
         val current = AppVersion.parse(currentVersionName) ?: return
         if (userInitiated) _status.value = UpdateStatus.Checking
@@ -108,16 +123,19 @@ class UpdateManager internal constructor(
         val version = release.version.toString()
         if (!release.version.isNewerThan(current)) {
             settings.clearReady()
+            settings.permissionVersion = null
             settings.lastError = null
             clearCache(keep = null)
             _status.value = UpdateStatus.Idle(settings.lastCheckedMs)
             return
         }
         if (!installer.canInstall()) {
+            // No notification: the Library card and Settings explain it, once, where the user can act.
+            settings.permissionVersion = version
             _status.value = UpdateStatus.NeedsPermission(version)
-            if (!userInitiated) notifier.needsPermission(version)
             return
         }
+        settings.permissionVersion = null
         val file = File(dir, "PageDrop-$version.apk")
         val reusable = settings.readyVersion == version && file.isFile &&
             settings.readySha256?.let { runCatching { verifier().verify(file, it) }.getOrNull() } is Verdict.Accept
@@ -152,7 +170,7 @@ class UpdateManager internal constructor(
         settings.lastError = null
         clearCache(keep = file)
         _status.value = UpdateStatus.Ready(version)
-        if (!userInitiated) startInstall(version, file)
+        if (!userInitiated || installAfter) startInstall(version, file)
     }
 
     /** The Install button: re-verifies the cached APK and hands it to the system installer. */
@@ -194,6 +212,12 @@ class UpdateManager internal constructor(
         settings.readyVersion?.let { _status.value = UpdateStatus.Ready(it) }
     }
 
+    /** The system wants a tap: open its screen if PageDrop is in front, otherwise notify (installs are already allowed). */
+    fun onInstallNeedsConfirmation(confirm: Intent, inForeground: Boolean, open: (Intent) -> Unit) {
+        onInstallNeedsConfirmation()
+        if (inForeground) open(confirm) else settings.readyVersion?.let { notifier.readyToInstall(it, confirm) }
+    }
+
     fun onInstallCancelled() = onInstallNeedsConfirmation()
 
     fun onInstallFailed(message: String?) {
@@ -204,6 +228,7 @@ class UpdateManager internal constructor(
     /** Returns from the system "allow installs" screen: if it's now allowed the next check can go ahead. */
     fun permissionMayHaveChanged(): Boolean {
         if (_status.value is UpdateStatus.NeedsPermission && installer.canInstall()) {
+            settings.permissionVersion = null
             _status.value = UpdateStatus.Idle(settings.lastCheckedMs)
             return true
         }

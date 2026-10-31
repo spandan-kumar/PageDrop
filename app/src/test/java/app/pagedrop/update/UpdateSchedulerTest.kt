@@ -8,7 +8,7 @@ class UpdateSchedulerTest {
         val calls = mutableListOf<String>()
         override fun schedulePeriodic() { calls += "schedule" }
         override fun cancelPeriodic() { calls += "cancel" }
-        override fun runNow() { calls += "now" }
+        override fun runNow(installAfter: Boolean) { calls += if (installAfter) "now+install" else "now" }
     }
 
     @Test fun schedulesWhenTheBuildAndTheSwitchAreOn() {
@@ -36,6 +36,12 @@ class UpdateSchedulerTest {
         val scheduler = UpdateScheduler(false, { true }, work)
         scheduler.sync(); scheduler.checkNow()
         assertEquals(emptyList<String>(), work.calls)
+    }
+
+    @Test fun checkNowCanAskToInstallAfterwards() {
+        val work = FakeWork()
+        UpdateScheduler(true, { true }, work).checkNow(installAfter = true)
+        assertEquals(listOf("now+install"), work.calls)
     }
 
     @Test fun checkNowRunsOnceInSelfUpdateBuilds() {

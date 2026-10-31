@@ -24,6 +24,47 @@ class UpdateSettings internal constructor(private val prefs: SharedPreferences) 
         _enabled.value = on
     }
 
+    private val _dismissed = MutableStateFlow(prefs.getString(KEY_DISMISSED, null))
+    /** The version whose "allow updates" card the user dismissed with "Not now"; null if none. */
+    val dismissedVersion: StateFlow<String?> = _dismissed.asStateFlow()
+
+    fun dismissCardFor(version: String) {
+        prefs.edit().putString(KEY_DISMISSED, version).apply()
+        _dismissed.value = version
+    }
+
+    /** A newer version found while installs weren't allowed; kept so the card survives a restart. */
+    var permissionVersion: String?
+        get() = prefs.getString(KEY_PERMISSION, null)
+        set(value) {
+            val e = prefs.edit()
+            if (value == null) e.remove(KEY_PERMISSION) else e.putString(KEY_PERMISSION, value)
+            e.apply()
+        }
+
+    private val _announced = MutableStateFlow(prefs.getString(KEY_ANNOUNCED, null))
+    /** Set after an update: the version name to show "Updated to x" for, until dismissed. */
+    val announcedVersion: StateFlow<String?> = _announced.asStateFlow()
+
+    fun dismissAnnouncement() {
+        prefs.edit().remove(KEY_ANNOUNCED).apply()
+        _announced.value = null
+    }
+
+    /**
+     * Call on each launch. Remembers the running version code; when it is higher than the last one seen, an
+     * update happened and "Updated to [versionName]" is announced once. A first launch (nothing stored) only records.
+     */
+    fun noteLaunch(versionCode: Long, versionName: String) {
+        val last = prefs.getLong(KEY_SEEN_CODE, 0L)
+        val e = prefs.edit().putLong(KEY_SEEN_CODE, versionCode)
+        if (last in 1 until versionCode) {
+            e.putString(KEY_ANNOUNCED, versionName)
+            _announced.value = versionName
+        }
+        e.apply()
+    }
+
     /** Epoch millis of the last check that reached GitHub, or 0. */
     var lastCheckedMs: Long
         get() = prefs.getLong(KEY_CHECKED, 0L)
@@ -53,5 +94,9 @@ class UpdateSettings internal constructor(private val prefs: SharedPreferences) 
         private const val KEY_READY = "ready_version"
         private const val KEY_READY_SHA = "ready_sha256"
         private const val KEY_ERROR = "last_error"
+        private const val KEY_DISMISSED = "dismissed_card_version"
+        private const val KEY_PERMISSION = "permission_version"
+        private const val KEY_ANNOUNCED = "announced_version"
+        private const val KEY_SEEN_CODE = "last_seen_version_code"
     }
 }

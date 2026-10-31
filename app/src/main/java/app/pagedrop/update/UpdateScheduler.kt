@@ -22,7 +22,7 @@ import javax.inject.Singleton
 interface UpdateWork {
     fun schedulePeriodic()
     fun cancelPeriodic()
-    fun runNow()
+    fun runNow(installAfter: Boolean)
 }
 
 /**
@@ -46,8 +46,8 @@ class UpdateScheduler internal constructor(
     }
 
     /** A check started by the "Check for updates" button. */
-    fun checkNow() {
-        if (selfUpdateBuild) work.runNow()
+    fun checkNow(installAfter: Boolean = false) {
+        if (selfUpdateBuild) work.runNow(installAfter)
     }
 }
 
@@ -64,10 +64,10 @@ internal class WorkManagerUpdateWork(private val context: Context) : UpdateWork 
         manager.cancelUniqueWork(PERIODIC)
     }
 
-    override fun runNow() {
+    override fun runNow(installAfter: Boolean) {
         val request = OneTimeWorkRequestBuilder<UpdateWorker>()
             .setConstraints(connected)
-            .setInputData(workDataOf(UpdateWorker.KEY_USER to true))
+            .setInputData(workDataOf(UpdateWorker.KEY_USER to true, UpdateWorker.KEY_INSTALL to installAfter))
             .build()
         manager.enqueueUniqueWork(NOW, ExistingWorkPolicy.KEEP, request)
     }
@@ -82,11 +82,15 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     override suspend fun doWork(): Result {
         val manager = EntryPointAccessors.fromApplication(applicationContext, UpdateEntryPoint::class.java).updateManager()
         // Failures are recorded by the manager and retried at the next run, so the work itself always succeeds.
-        manager.run(userInitiated = inputData.getBoolean(KEY_USER, false))
+        manager.run(
+            userInitiated = inputData.getBoolean(KEY_USER, false),
+            installAfter = inputData.getBoolean(KEY_INSTALL, false),
+        )
         return Result.success()
     }
 
     companion object {
         const val KEY_USER = "user_initiated"
+        const val KEY_INSTALL = "install_after"
     }
 }

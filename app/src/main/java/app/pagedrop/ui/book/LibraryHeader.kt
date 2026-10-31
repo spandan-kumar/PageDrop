@@ -217,6 +217,7 @@ internal fun LibraryHeader(
     onFindCovers: () -> Unit = {},
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (app.pagedrop.BuildConfig.SELF_UPDATE) app.pagedrop.ui.update.UpdatePromptCards()
         SearchEntryField(onClick = onFindBook)
         KindleStatusChip(
             status = kindleStatus,

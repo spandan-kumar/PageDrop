@@ -51,7 +51,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Back from the system "install unknown apps" screen: carry on with the update if it is now allowed. */
     fun onResumed() {
-        if (updateManager.permissionMayHaveChanged()) updateScheduler.checkNow()
+        if (updateManager.permissionMayHaveChanged()) updateScheduler.checkNow(installAfter = true)
     }
 
     /** What a convertible format (EPUB, PDF, TXT) does by default: convert to a Kindle book, or keep it as is. */
