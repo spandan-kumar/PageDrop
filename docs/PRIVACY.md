@@ -63,6 +63,10 @@ When the conversion server is off, or it fails, PageDrop fetches the article's p
 
 Only when you tap to install one: fonts from GitHub (`github.com`) and dictionaries from SourceForge (`downloads.sourceforge.net`).
 
+### Updates (GitHub builds only)
+
+The APK from GitHub Releases checks for a new version about once a day, and only while Settings → Updates → Update automatically is on. It asks `api.github.com` for the latest release, and downloads the new APK and its checksum from `github.com` (over Wi-Fi unless you tap Check for updates). The request carries nothing but the usual request details and the app version in its User-Agent (`PageDrop/<version>`). You can turn it off in Settings. The F-Droid build has no update checker and never contacts these hosts for updates.
+
 ### The Kindle Modding Wiki
 
 The "Get your Kindle ready" walkthrough opens pages on [kindlemodding.org](https://kindlemodding.org/) in your browser. PageDrop sends it nothing beyond loading those pages.

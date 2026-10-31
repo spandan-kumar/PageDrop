@@ -44,6 +44,13 @@ If both builds ever use the same `gradleprops`, they could become identical. The
 `AllowedAPKSigningKeys: c42b4f0044ebfd1785cb8e30e182a7861a6ab51554353c81459f87de395a0533`
 and a `Binaries:` URL pointing at the release APK.
 
+## Self-update is off in F-Droid builds
+
+The GitHub release can update itself (Settings → Updates, plus the `REQUEST_INSTALL_PACKAGES` permission). F-Droid
+forbids that, and it is off here because the `PAGEDROP_SELF_UPDATE` Gradle property defaults to `false`, and only
+`release.yml` passes `-PPAGEDROP_SELF_UPDATE=true`. The recipe needs no change: an F-Droid build has no update
+worker, makes no calls to GitHub for updates and does not request the install permission.
+
 ## Maven repositories
 
 Up to `v0.9.0`, `settings.gradle.kts` also listed a dead raw.githubusercontent.com Maven

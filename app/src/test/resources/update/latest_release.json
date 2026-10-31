@@ -1,0 +1,28 @@
+{
+  "url": "https://api.github.com/repos/spandan-kumar/PageDrop/releases/428115859",
+  "html_url": "https://github.com/spandan-kumar/PageDrop/releases/tag/v0.9.6",
+  "id": 428115859,
+  "tag_name": "v0.9.6",
+  "name": "v0.9.6",
+  "draft": false,
+  "prerelease": false,
+  "created_at": "2026-10-29T16:18:17Z",
+  "published_at": "2026-10-29T16:25:36Z",
+  "body": "- Keep as is: send books in their original format, without converting (Settings > Send format, or per book)\n- Browse your OPDS catalogs: folders, books, more pages as you scroll, and search\n- When a catalog answers a search with a menu, you choose the option\n- Library: the top bar turns solid when y",
+  "assets": [
+    {
+      "name": "PageDrop-v0.9.6.apk",
+      "content_type": "application/vnd.android.package-archive",
+      "state": "uploaded",
+      "size": 10580289,
+      "browser_download_url": "https://github.com/spandan-kumar/PageDrop/releases/download/v0.9.6/PageDrop-v0.9.6.apk"
+    },
+    {
+      "name": "PageDrop-v0.9.6.apk.sha256",
+      "content_type": "application/octet-stream",
+      "state": "uploaded",
+      "size": 86,
+      "browser_download_url": "https://github.com/spandan-kumar/PageDrop/releases/download/v0.9.6/PageDrop-v0.9.6.apk.sha256"
+    }
+  ]
+}

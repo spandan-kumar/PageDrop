@@ -78,6 +78,10 @@
             </intent-filter>
         </activity>
 
+        <!-- Install results for self-updates (GitHub builds only; never fires in F-Droid builds). -->
+        <receiver
+            android:name=".update.InstallResultReceiver"
+            android:exported="false" />
 
     </application>
 
