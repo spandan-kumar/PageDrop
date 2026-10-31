@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Merged only when built with -PPAGEDROP_SELF_UPDATE=true (the GitHub release). Not in F-Droid builds. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+</manifest>

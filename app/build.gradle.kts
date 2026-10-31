@@ -16,6 +16,10 @@
 
 import java.util.Properties
 
+// Self-update (GitHub Releases) is for the APK published on GitHub only. F-Droid forbids self-updating apps and
+// signs with its own key, so this is OFF unless -PPAGEDROP_SELF_UPDATE=true is passed (release.yml does).
+val selfUpdate = providers.gradleProperty("PAGEDROP_SELF_UPDATE").orNull?.trim()?.lowercase() == "true"
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.hilt.gradle)
@@ -53,6 +57,7 @@ android {
         val googleBooksDefault = providers.gradleProperty("PAGEDROP_GOOGLE_BOOKS_DEFAULT").orNull
             ?.trim()?.lowercase() != "false"
         buildConfigField("boolean", "PAGEDROP_GOOGLE_BOOKS_DEFAULT", googleBooksDefault.toString())
+        buildConfigField("boolean", "SELF_UPDATE", selfUpdate.toString())
     }
 
     signingConfigs {
@@ -91,6 +96,10 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.all { it.systemProperty("pagedrop.selfUpdate", selfUpdate.toString()) }
+    }
+
     buildFeatures {
         compose = true
         aidl = false
@@ -109,6 +118,15 @@ android {
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
+    }
+}
+
+// REQUEST_INSTALL_PACKAGES is only in the manifest of builds that update themselves.
+androidComponents {
+    onVariants { variant ->
+        if (selfUpdate) {
+            variant.sources.manifests.addStaticManifestFile("src/selfupdate/AndroidManifest.xml")
+        }
     }
 }
 

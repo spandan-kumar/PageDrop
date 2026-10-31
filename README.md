@@ -72,7 +72,7 @@ Tried it on something else? [Open an issue](https://github.com/spandan-kumar/Pag
 **Install**
 
 - **F-Droid:** [f-droid.org/packages/app.pagedrop](https://f-droid.org/packages/app.pagedrop/). Built from source and signed by F-Droid. Google Books lookups start switched off in this build.
-- **GitHub Releases:** download the APK from the [latest release](https://github.com/spandan-kumar/PageDrop/releases/latest). Each release is signed; see [SECURITY.md](SECURITY.md) to verify it.
+- **GitHub Releases:** download the APK from the [latest release](https://github.com/spandan-kumar/PageDrop/releases/latest). Each release is signed; see [SECURITY.md](SECURITY.md) to verify it. This build updates itself (Settings → Updates) after checking each download's checksum and signing key.
 - **Obtainium:** add `https://github.com/spandan-kumar/PageDrop` as an app source to get the GitHub releases with automatic updates.
 
 The F-Droid and GitHub builds are signed with different keys, so one can't update over the other. To switch, uninstall first.
@@ -85,7 +85,7 @@ The F-Droid and GitHub builds are signed with different keys, so one can't updat
 
 ## Privacy
 
-No account to create, no analytics, no ads. Your phone talks to your Kindle over local Wi-Fi. It also contacts the book sources you search, Open Library and Google Books for book details, GitHub and SourceForge when you install fonts or dictionaries, and, unless you switch it off, PageDrop's conversion server. Websites you open in the built-in browser see you like any browser would. The full host-by-host list is in [What leaves your phone](docs/PRIVACY.md).
+No account to create, no analytics, no ads. Your phone talks to your Kindle over local Wi-Fi. It also contacts the book sources you search, Open Library and Google Books for book details, GitHub and SourceForge when you install fonts or dictionaries, GitHub once a day to look for updates (GitHub-release builds only; Settings can turn it off), and, unless you switch it off, PageDrop's conversion server. Websites you open in the built-in browser see you like any browser would. The full host-by-host list is in [What leaves your phone](docs/PRIVACY.md).
 
 ## Community
 

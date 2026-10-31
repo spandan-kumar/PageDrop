@@ -28,6 +28,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
@@ -39,7 +41,12 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.RadioButton
 import androidx.compose.ui.semantics.Role
+import app.pagedrop.update.UpdateStatus
+import app.pagedrop.update.allowInstallsIntent
+import app.pagedrop.update.describe
+import androidx.compose.ui.platform.LocalContext
 import app.pagedrop.ui.shell.HairlineCard
+import app.pagedrop.ui.shell.InkButton
 import app.pagedrop.ui.shell.NavRow
 import app.pagedrop.ui.shell.OutlineButton
 import app.pagedrop.ui.shell.ResultBanner
@@ -58,7 +65,11 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsState()
     val useGoogleBooks by viewModel.useGoogleBooks.collectAsState()
     val sendFormat by viewModel.sendFormat.collectAsState()
+    val autoUpdate by viewModel.autoUpdate.collectAsState()
+    val updateStatus by viewModel.updateStatus.collectAsState()
+    val context = LocalContext.current
     LaunchedEffect(Unit) { viewModel.refresh() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (BuildConfig.SELF_UPDATE) viewModel.onResumed() }
 
     Scaffold(
         modifier = modifier,
@@ -232,6 +243,56 @@ fun SettingsScreen(
                 }
             }
 
+            if (BuildConfig.SELF_UPDATE) {
+                SectionLabel("Updates")
+                HairlineCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Update automatically", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "Checks GitHub once a day and installs new versions over Wi-Fi.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(checked = autoUpdate, onCheckedChange = viewModel::updateAutoUpdate)
+                        }
+                        Text(
+                            app.pagedrop.update.UpdatePrompts.EXPLANATION,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Column {
+                            Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                updateStatus.describe(System.currentTimeMillis()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (updateStatus is UpdateStatus.Failed) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        when (updateStatus) {
+                            is UpdateStatus.Ready -> InkButton("Install", viewModel::installUpdate, Modifier.fillMaxWidth())
+                            is UpdateStatus.NeedsPermission -> InkButton(
+                                "Allow PageDrop to install updates",
+                                { context.startActivity(allowInstallsIntent(context)) },
+                                Modifier.fillMaxWidth()
+                            )
+                            else -> Unit
+                        }
+                        OutlineButton(
+                            "Check for updates",
+                            viewModel::checkForUpdates,
+                            Modifier.fillMaxWidth(),
+                            enabled = updateStatus !is UpdateStatus.Checking &&
+                                updateStatus !is UpdateStatus.Downloading &&
+                                updateStatus !is UpdateStatus.Installing
+                        )
+                    }
+                }
+            }
+
             SectionLabel("About")
             HairlineCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
@@ -241,6 +302,13 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (!BuildConfig.SELF_UPDATE) {
+                        Text(
+                            "Updates come from your app store",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

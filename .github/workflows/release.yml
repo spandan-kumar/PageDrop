@@ -44,7 +44,7 @@ jobs:
           PAGEDROP_KEYSTORE_PASSWORD: ${{ secrets.PAGEDROP_KEYSTORE_PASSWORD }}
           PAGEDROP_KEY_ALIAS: ${{ secrets.PAGEDROP_KEY_ALIAS }}
           PAGEDROP_KEY_PASSWORD: ${{ secrets.PAGEDROP_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease -PPAGEDROP_SELF_UPDATE=true
 
       - name: Verify APK signature
         run: |

@@ -9,6 +9,10 @@ import app.pagedrop.metadata.MetadataSettings
 import app.pagedrop.server.PageDropApiClient
 import app.pagedrop.server.ServerSettings
 import app.pagedrop.server.ServerUploadConsent
+import app.pagedrop.update.UpdateManager
+import app.pagedrop.update.UpdateScheduler
+import app.pagedrop.update.UpdateSettings
+import app.pagedrop.update.UpdateStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +29,30 @@ class SettingsViewModel @Inject constructor(
     private val uploadConsent: ServerUploadConsent,
     private val metadataSettings: MetadataSettings,
     private val sendFormatSettings: SendFormatSettings,
+    private val updateSettings: UpdateSettings,
+    private val updateManager: UpdateManager,
+    private val updateScheduler: UpdateScheduler,
 ) : ViewModel() {
+
+    /** Self-update (GitHub builds only; see BuildConfig.SELF_UPDATE). */
+    val autoUpdate: StateFlow<Boolean> = updateSettings.enabled
+    val updateStatus: StateFlow<UpdateStatus> = updateManager.status
+
+    fun updateAutoUpdate(on: Boolean) {
+        updateSettings.setEnabled(on)
+        updateScheduler.sync()
+    }
+
+    fun checkForUpdates() = updateScheduler.checkNow()
+
+    fun installUpdate() {
+        viewModelScope.launch { updateManager.installReady() }
+    }
+
+    /** Back from the system "install unknown apps" screen: carry on with the update if it is now allowed. */
+    fun onResumed() {
+        if (updateManager.permissionMayHaveChanged()) updateScheduler.checkNow(installAfter = true)
+    }
 
     /** What a convertible format (EPUB, PDF, TXT) does by default: convert to a Kindle book, or keep it as is. */
     val sendFormat: StateFlow<SendFormatSetting> = sendFormatSettings.format

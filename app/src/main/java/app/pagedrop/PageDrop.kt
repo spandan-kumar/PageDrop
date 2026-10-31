@@ -21,6 +21,8 @@ import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import app.pagedrop.metadata.BookMetadataLookup
 import app.pagedrop.metadata.MetadataSettings
 import app.pagedrop.transfer.service.NotificationHelper
+import app.pagedrop.update.UpdateManager
+import app.pagedrop.update.UpdateScheduler
 import app.pagedrop.transfer.ssh.KindleSsh
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -28,6 +30,8 @@ import javax.inject.Inject
 @HiltAndroidApp
 class PageDrop : Application() {
     @Inject lateinit var metadataSettings: MetadataSettings
+    @Inject lateinit var updateScheduler: UpdateScheduler
+    @Inject lateinit var updateManager: UpdateManager
 
     override fun onCreate() {
         super.onCreate()
@@ -35,5 +39,7 @@ class PageDrop : Application() {
         PDFBoxResourceLoader.init(applicationContext)
         NotificationHelper.createChannel(this)
         KindleSsh.init(this)
+        updateManager.onAppStart()
+        updateScheduler.sync()
     }
 }
