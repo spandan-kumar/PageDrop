@@ -1,0 +1,2 @@
+- GitHub builds now keep themselves up to date: PageDrop checks for new versions once a day, explains before asking Android's permission, and only installs updates signed by the same developer (Settings > Updates). F-Droid builds keep updating through F-Droid.
+- Cleaner author names from OPDS catalogs
