@@ -52,6 +52,9 @@ internal fun optionLabel(option: DownloadOption): String {
     return option.format.name + size
 }
 
+/** A library entry is eligible for "Send again" only after a successful transfer. */
+internal fun shouldOfferSendAgain(book: Book?): Boolean = book?.lastTransferred != null
+
 @Composable
 private fun KeepChoice(format: String, keep: Boolean, onKeepChange: (Boolean) -> Unit, enabled: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -82,6 +85,8 @@ internal fun ResultSheet(
     val added = action is ActionState.Finished
     var expanded by remember(result.id) { mutableStateOf(false) }
     val inLibrary = libraryBook != null || added
+    val displayedBook = (action as? ActionState.Finished)?.book ?: libraryBook
+    val canSendAgain = shouldOfferSendAgain(displayedBook)
     val canTake = (chosen != null && result.title.isNotBlank()) || inLibrary
 
     ModalBottomSheet(
@@ -221,7 +226,7 @@ internal fun ResultSheet(
                         enabled = !busy && canTake && action !is ActionState.Failed,
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    ) { Text(if (inLibrary) "Send again" else "Send to Kindle") }
+                    ) { Text(if (canSendAgain) "Send again" else "Send to Kindle") }
                     if (!inLibrary) {
                         OutlinedButton(
                             onClick = onAdd,
