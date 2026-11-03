@@ -1,5 +1,7 @@
 package app.pagedrop.ui.shell
 
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -95,8 +97,13 @@ fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
         modifier = modifier,
         enabled = enabled,
         shape = ButtonShape,
+        // Solid, so the background poster never shows through the label.
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            disabledContainerColor = MaterialTheme.colorScheme.surface,
+        ),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-    ) { Text(text) }
+    ) { Text(text, textAlign = TextAlign.Center) }
 }
 
 /** Success / failure message with a plain-English fix hint. */

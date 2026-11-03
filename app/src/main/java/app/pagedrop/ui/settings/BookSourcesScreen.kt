@@ -1,5 +1,7 @@
 package app.pagedrop.ui.settings
 
+import androidx.compose.ui.graphics.Color
+import app.pagedrop.ui.components.posterBackground
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,17 +63,17 @@ private fun SourceKind.title(): String = when (this) {
 }
 
 private fun SourceKind.blurb(): String = when (this) {
-    SourceKind.GUTENBERG -> "Public-domain classics, many already in Kindle format"
-    SourceKind.STANDARD_EBOOKS -> "Carefully formatted public-domain editions"
-    SourceKind.INTERNET_ARCHIVE -> "Freely downloadable books and scans"
-    SourceKind.DIGITAL_LIBRARY_INDIA -> "Indian-language books and scans from Internet Archive"
-    SourceKind.OPEN_LIBRARY -> "Open editions and borrowing through its website"
-    SourceKind.HINDI_WIKISOURCE -> "Classic Hindi texts; read and check exports on the website"
-    SourceKind.HINDWI -> "Hindi literature; opens in Hindwi’s web reader"
-    SourceKind.REKHTA -> "Urdu and related literature; opens in Rekhta’s web reader"
-    SourceKind.ENGLISH_WIKISOURCE -> "Classic English texts; read and check exports on the website"
-    SourceKind.FADED_PAGE -> "English title search with EPUB and Kindle downloads"
-    SourceKind.MANYBOOKS -> "English ebooks; downloads on the website may require an account"
+    SourceKind.GUTENBERG -> "Public-domain classics"
+    SourceKind.STANDARD_EBOOKS -> "Polished public-domain editions"
+    SourceKind.INTERNET_ARCHIVE -> "Free books and scans"
+    SourceKind.DIGITAL_LIBRARY_INDIA -> "Indian-language books and scans"
+    SourceKind.OPEN_LIBRARY -> "Read or borrow on its website"
+    SourceKind.HINDI_WIKISOURCE -> "Classic Hindi texts"
+    SourceKind.HINDWI -> "Hindi literature, read on Hindwi"
+    SourceKind.REKHTA -> "Urdu literature, read on Rekhta"
+    SourceKind.ENGLISH_WIKISOURCE -> "Classic English texts"
+    SourceKind.FADED_PAGE -> "Public-domain books with Kindle downloads"
+    SourceKind.MANYBOOKS -> "Free ebooks; some need an account"
     SourceKind.OPDS, SourceKind.WEBSITE -> ""
 }
 
@@ -93,25 +95,25 @@ fun BookSourcesScreen(
     var removeTarget by remember { mutableStateOf<OpdsCatalog?>(null) }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.posterBackground(),
         topBar = {
             TopAppBar(
                 title = { Text("Book sources") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
             )
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { inner ->
         Column(
             Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "Where “Find a book” looks. Download available files or open a source’s web reader.",
+                "Where your book searches look.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -132,7 +134,7 @@ fun BookSourcesScreen(
 
             SectionLabel("Languages & regions")
             Text(
-                "Sources for books in other languages. The ones for your phone’s region and languages start on.",
+                "Sources for other languages. The ones matching your phone start on.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -165,17 +167,16 @@ fun BookSourcesScreen(
 
             SectionLabel("Website shortcuts")
             Text(
-                "Shortcuts for Global Grey and your languages’ sites appear below book results. " +
-                    "Search inside PageDrop and capture supported book downloads; access varies.",
+                "Shown below search results. They open the site inside PageDrop.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             HairlineCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Show shadow-library search shortcuts", style = MaterialTheme.typography.titleMedium)
+                        Text("Shadow-library shortcuts", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Adds Anna’s Archive and OceanofPDF. Their availability and legality vary by country.",
+                            "Anna’s Archive and OceanofPDF. Legality varies by country.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -187,7 +188,7 @@ fun BookSourcesScreen(
             SectionLabel("OPDS catalogs")
             if (catalogs.isEmpty()) {
                 Text(
-                    "None added. An OPDS catalog is a book server address, for example from a library or a Calibre-Web install.",
+                    "None yet. An OPDS catalog is a book server, like a library’s or your Calibre-Web.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -213,7 +214,7 @@ fun BookSourcesScreen(
             }
             OutlineButton("Add catalog", onClick = { viewModel.clearAddError(); showAdd = true }, Modifier.fillMaxWidth())
             Text(
-                "Only add catalogs you’re allowed to download from. Passwords are kept on this phone only.",
+                "Only add catalogs you may download from. Passwords stay on this phone.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

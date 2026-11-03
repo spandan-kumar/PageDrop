@@ -82,6 +82,8 @@ internal fun ResultSheet(
     val added = action is ActionState.Finished
     var expanded by remember(result.id) { mutableStateOf(false) }
     val inLibrary = libraryBook != null || added
+    // "Send again" only once the book has really been sent; adding it to the library doesn't count.
+    val sentBefore = libraryBook?.lastTransferred != null
     val canTake = (chosen != null && result.title.isNotBlank()) || inLibrary
 
     ModalBottomSheet(
@@ -221,7 +223,7 @@ internal fun ResultSheet(
                         enabled = !busy && canTake && action !is ActionState.Failed,
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    ) { Text(if (inLibrary) "Send again" else "Send to Kindle") }
+                    ) { Text(if (sentBefore) "Send again" else "Send to Kindle") }
                     if (!inLibrary) {
                         OutlinedButton(
                             onClick = onAdd,

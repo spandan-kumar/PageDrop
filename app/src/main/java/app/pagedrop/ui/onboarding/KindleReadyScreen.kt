@@ -1,5 +1,7 @@
 package app.pagedrop.ui.onboarding
 
+import androidx.compose.ui.graphics.Color
+import app.pagedrop.ui.components.posterBackground
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -81,7 +83,7 @@ fun KindleReadyScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.posterBackground(),
         topBar = {
             TopAppBar(
                 title = { Text("Get your Kindle ready") },
@@ -89,12 +91,12 @@ fun KindleReadyScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Transparent
     ) { inner ->
         Column(
             Modifier.fillMaxSize().padding(inner).verticalScroll(scroll).padding(16.dp),

@@ -98,7 +98,7 @@ object DeviceCommandRunner {
         }
 
         DeviceStatus(
-            firmwareVersion = firmware.stdout.ifBlank { null },
+            firmwareVersion = cleanFirmwareVersion(firmware.stdout),
             serialNumber = serial.stdout.ifBlank { null },
             freeSpace = parseSpace(disk.stdout),
             uptime = uptimeCmd.stdout.toLongOrNull()?.let { formatUptime(it) },
@@ -305,6 +305,17 @@ object DeviceCommandRunner {
         host: String, port: Int, user: String, pass: String
     ): CommandResult = runCommand(host, port, user, pass, recipe.command)
 }
+
+/**
+ * The firmware line without the placeholders old firmware leaves unfilled, e.g.
+ * "Kindle 5.6.1.1 (~~otaVersion~~)" -> "Kindle 5.6.1.1". Null when nothing is left.
+ */
+internal fun cleanFirmwareVersion(raw: String): String? =
+    raw.replace(Regex("~~[^~]*~~"), "")
+        .replace(Regex("\\(\\s*\\)"), "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+        .ifBlank { null }
 
 private fun formatUptime(seconds: Long): String {
     val days = seconds / 86400

@@ -1,5 +1,10 @@
 package app.pagedrop.ui.kindle
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import app.pagedrop.ui.components.SettingsButton
+import app.pagedrop.ui.components.posterBackground
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.graphics.Color
@@ -106,12 +111,12 @@ fun KindleScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.posterBackground(),
         topBar = {
             TopAppBar(
                 title = { Text("Kindle") },
                 actions = {
-                    IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, "Settings") }
+                    SettingsButton(onOpenSettings)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -131,7 +136,7 @@ fun KindleScreen(
                 )
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Column(
             Modifier
@@ -167,14 +172,15 @@ fun KindleScreen(
                 }
 
                 SectionLabel("Actions")
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Same height for both, even if one label wraps.
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlineButton(
-                        if (state.isChecking) "Checking..." else "Check Kindle library",
+                        if (state.isChecking) "Checking..." else "Check library",
                         viewModel::triggerRescan,
-                        Modifier.weight(1f),
+                        Modifier.weight(1f).fillMaxHeight(),
                         enabled = state.reachable == true && !state.isBusy && !transferBusy
                     )
-                    OutlineButton("Restart Kindle", { confirmReboot = true }, Modifier.weight(1f), enabled = state.reachable == true)
+                    OutlineButton("Restart Kindle", { confirmReboot = true }, Modifier.weight(1f).fillMaxHeight(), enabled = state.reachable == true)
                 }
             }
 

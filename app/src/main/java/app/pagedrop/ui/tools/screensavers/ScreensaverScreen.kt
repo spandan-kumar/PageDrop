@@ -1,5 +1,7 @@
 package app.pagedrop.ui.tools.screensavers
 
+import androidx.compose.ui.graphics.Color
+import app.pagedrop.ui.components.posterBackground
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -69,7 +71,7 @@ fun ScreensaverScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.posterBackground(),
         topBar = {
             TopAppBar(
                 title = { Text("Screensavers") },
@@ -79,12 +81,12 @@ fun ScreensaverScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Column(
             modifier = Modifier

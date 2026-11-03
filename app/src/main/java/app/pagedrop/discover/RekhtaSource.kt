@@ -17,6 +17,8 @@ internal class RekhtaSource(private val http: DiscoverHttp, override val kind: S
     companion object {
         fun parse(html: String, base: String, kind: SourceKind, name: String): List<BookResult> {
             val doc = Jsoup.parse(html, base)
+            // A search with no matches has a "not found" block instead of the cards; that's an empty result, not an outage.
+            if (doc.selectFirst(".searchEbookMatchCards") == null && doc.selectFirst(".rDiscNotFound") != null) return emptyList()
             if (doc.selectFirst(".searchEbookMatchCards") == null) {
                 throw SourceUnavailableException("$name couldn't show its search results. Try its website.")
             }

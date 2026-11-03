@@ -1,5 +1,6 @@
 package app.pagedrop.ui.discover
 
+import app.pagedrop.ui.components.posterBackground
 import app.pagedrop.data.SendPlan
 import app.pagedrop.data.SendFormatDecision
 import androidx.activity.compose.BackHandler
@@ -101,7 +102,7 @@ fun CatalogScreen(
     val listStates = remember { HashMap<Int, LazyListState>() }
     listStates.keys.retainAll(state.stack.map { it.id }.toSet())
 
-    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Column(modifier.fillMaxSize().posterBackground()) {
         CatalogTopBar(
             title = level?.title ?: state.catalogName,
             searchOpen = state.searchOpen,

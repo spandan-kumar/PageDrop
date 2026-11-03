@@ -1,5 +1,6 @@
 package app.pagedrop.ui.discover
 
+import app.pagedrop.ui.components.posterBackground
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -133,7 +135,7 @@ fun FindScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .posterBackground()
                 .statusBarsPadding()
                 .pointerInput(Unit) { detectTapGestures { } }
         ) {
@@ -150,7 +152,7 @@ fun FindScreen(
                     shape = MaterialTheme.shapes.small,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = BookSerif),
                     placeholder = {
-                        Text("Search for a book…", style = MaterialTheme.typography.bodyLarge.copy(fontFamily = BookSerif))
+                        Text("Title or author…", style = MaterialTheme.typography.bodyLarge.copy(fontFamily = BookSerif))
                     },
                     leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                     trailingIcon = {
@@ -210,6 +212,7 @@ fun FindScreen(
                             onRecent = { viewModel.onQueryChange(it); submit(it) },
                             onClearRecent = viewModel::clearRecent,
                             onOpenSources = onOpenSources,
+                            showLanguagesHint = regions.size < app.pagedrop.discover.Region.entries.size,
                         )
                     }
                 }
@@ -232,7 +235,7 @@ fun FindScreen(
                     }
                 }
                 if (results != null && !search.searching && regions.size < app.pagedrop.discover.Region.entries.size) {
-                    item { LanguagesHint(onOpenSources) }
+                    item { Box(Modifier.padding(top = 16.dp)) { LanguagesHint(onOpenSources) } }
                 }
             }
         }
@@ -295,14 +298,19 @@ private fun SourceErrorChips(errors: List<SourceError>) {
 /** Points to Settings -> Book sources for books in other languages, while some language/region groups are off. */
 @Composable
 private fun LanguagesHint(onOpenSources: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "Looking for books in another language? Turn on more sources in Languages & regions.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        TextButton(onClick = onOpenSources) { Text("Book sources") }
+    HairlineCard(Modifier.fillMaxWidth(), onClick = onOpenSources) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Outlined.Translate, contentDescription = null)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Books in other languages", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Turn on Hindi, Urdu or Portuguese sources in Languages & regions.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -315,6 +323,7 @@ private fun IdleContent(
     onRecent: (String) -> Unit,
     onClearRecent: () -> Unit,
     onOpenSources: () -> Unit,
+    showLanguagesHint: Boolean,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (!hasSources) {
@@ -375,16 +384,14 @@ private fun IdleContent(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Finding free books", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Search by title, author, or both: “Pride and Prejudice”, “Jane Austen”.\n" +
-                        "Try Hindi titles too: “गोदान”, “प्रेमचंद”. Try English spellings like “Godaan” as well.\n" +
-                        "Search includes Gutenberg, Standard Ebooks, Internet Archive, Digital Library of India, " +
-                        "Open Library, Faded Page, ManyBooks, English and Hindi Wikisource, Hindwi and Rekhta, plus your catalogs. " +
-                        "Some books open in their source’s web reader. More library searches appear below the results.",
+                    "Search by title, author or both. PageDrop looks in Project Gutenberg, Standard Ebooks, " +
+                        "Internet Archive, Open Library and more, plus your own catalogs.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
+        if (showLanguagesHint) LanguagesHint(onOpenSources)
     }
 }
 

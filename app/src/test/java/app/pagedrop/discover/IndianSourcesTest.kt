@@ -29,6 +29,8 @@ class IndianSourcesTest {
     @Test fun emptySearchIsValidButChallengePageIsNotNoResults() {
         assertTrue(RekhtaSource.parse("<div class='searchEbookMatchCards'></div>", "https://www.hindwi.org", SourceKind.HINDWI, "Hindwi").isEmpty())
         assertTrue(runCatching { RekhtaSource.parse("<html>Access denied</html>", "https://www.hindwi.org", SourceKind.HINDWI, "Hindwi") }.exceptionOrNull() is SourceUnavailableException)
+        // Hindwi drops the cards block entirely when nothing matches (e.g. "frankenstein") and shows this instead.
+        assertTrue(RekhtaSource.parse("<div class='rDiscNotFound'>No results</div>", "https://www.hindwi.org", SourceKind.HINDWI, "Hindwi").isEmpty())
     }
 
     @Test fun wikisourceOmitsChapterHitsAndKeepsReaderLinkWithoutGuessingACompleteEpub() {
