@@ -3,6 +3,7 @@ package app.pagedrop.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.pagedrop.discover.OpdsCatalog
+import app.pagedrop.discover.Region
 import app.pagedrop.discover.SourceKind
 import app.pagedrop.discover.SourceSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Settings -> Book sources: built-in toggles and the user's OPDS catalogs. */
+/** Settings -> Book sources: built-in toggles, language/region groups and the user's OPDS catalogs. */
 @HiltViewModel
 class BookSourcesViewModel @Inject constructor(
     private val settings: SourceSettings,
@@ -22,6 +23,7 @@ class BookSourcesViewModel @Inject constructor(
     val enabledBuiltIns: StateFlow<Set<SourceKind>> = settings.enabledBuiltIns
     val catalogs: StateFlow<List<OpdsCatalog>> = settings.catalogs
     val showShadowLibraries: StateFlow<Boolean> = settings.showShadowLibraries
+    val regions: StateFlow<Set<Region>> = settings.regions
 
     data class AddState(val adding: Boolean = false, val error: String? = null)
 
@@ -31,6 +33,8 @@ class BookSourcesViewModel @Inject constructor(
     fun setEnabled(kind: SourceKind, on: Boolean) = settings.setEnabled(kind, on)
 
     fun setShowShadowLibraries(on: Boolean) = settings.setShowShadowLibraries(on)
+
+    fun setRegion(region: Region, on: Boolean) = settings.setRegion(region, on)
 
     fun removeCatalog(id: String) = settings.removeCatalog(id)
 

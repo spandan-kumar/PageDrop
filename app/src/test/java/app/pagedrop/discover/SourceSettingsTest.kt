@@ -116,4 +116,43 @@ class SourceSettingsTest {
         assertEquals("https://example.org/opds", SourceSettings.normalizeUrl(" example.org/opds "))
         assertEquals(SourceSettings.catalogId("https://Example.org/opds/"), SourceSettings.catalogId("https://example.org/opds"))
     }
+
+    @Test
+    fun regionsStartFromThePhonesRegionAndLanguagesAndPersist() {
+        val prefs = app.pagedrop.data.NullSharedPreferences()
+        // An English-language phone set to Brazil still gets the Brazilian group.
+        val s1 = SourceSettings(prefs, MemorySecrets(), FakeHttp(), listOf(java.util.Locale("en", "BR")))
+        assertEquals(setOf(Region.BRAZIL), s1.regions.value)
+        assertEquals(setOf(Region.INDIA), Region.defaultsFor(listOf(java.util.Locale("en", "US"), java.util.Locale("hi"))))
+        assertTrue(Region.defaultsFor(listOf(java.util.Locale("en", "US"))).isEmpty())
+
+        s1.setRegion(Region.INDIA, true)
+        s1.setRegion(Region.BRAZIL, false)
+        // The stored choice wins over the phone's locales after a restart.
+        val s2 = SourceSettings(prefs, MemorySecrets(), FakeHttp(), listOf(java.util.Locale("pt", "BR")))
+        assertEquals(setOf(Region.INDIA), s2.regions.value)
+    }
+
+    @Test
+    fun regionalSourcesAreSearchedOnlyWhileTheirGroupIsOn() {
+        val s = SourceSettings(app.pagedrop.data.NullSharedPreferences(), MemorySecrets(), FakeHttp(), emptyList())
+        assertFalse(SourceKind.HINDWI in s.activeBuiltIns())
+        assertTrue(SourceKind.GUTENBERG in s.activeBuiltIns())
+        s.setRegion(Region.INDIA, true)
+        assertTrue(SourceKind.HINDWI in s.activeBuiltIns())
+        s.setEnabled(SourceKind.HINDWI, false)
+        assertFalse(SourceKind.HINDWI in s.activeBuiltIns())
+    }
+
+    @Test
+    fun regionalShortcutsFollowTheirGroup() {
+        val names = { regions: Set<Region> -> BookWebSearch.links("dom casmurro", regions = regions).map { it.sourceName } }
+        assertFalse("SciELO Brasil" in names(emptySet()))
+        assertFalse("ePustakalay" in names(emptySet()))
+        assertTrue("Global Grey" in names(emptySet()))
+        assertTrue(names(setOf(Region.BRAZIL)).containsAll(Region.BRAZIL.shortcuts))
+        assertFalse("ePustakalay" in names(setOf(Region.BRAZIL)))
+        val all = BookWebSearch.links("dom casmurro", regions = Region.entries.toSet())
+        assertEquals(all.filterNot { it.sourceName in Region.BRAZIL.shortcuts }, BookWebSearch.visibleLinks(all, false, setOf(Region.INDIA)))
+    }
 }

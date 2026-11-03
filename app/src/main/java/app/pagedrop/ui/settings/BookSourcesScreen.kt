@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pagedrop.discover.OpdsCatalog
+import app.pagedrop.discover.Region
 import app.pagedrop.discover.SourceKind
 import app.pagedrop.ui.shell.HairlineCard
 import app.pagedrop.ui.shell.OutlineButton
@@ -74,7 +75,7 @@ private fun SourceKind.blurb(): String = when (this) {
     SourceKind.OPDS, SourceKind.WEBSITE -> ""
 }
 
-private val builtIns = SourceKind.entries.filter { it.isBuiltIn }
+private val builtIns = SourceKind.entries.filter { it.isBuiltIn && Region.of(it) == null }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,6 +87,7 @@ fun BookSourcesScreen(
     val enabled by viewModel.enabledBuiltIns.collectAsStateWithLifecycle()
     val catalogs by viewModel.catalogs.collectAsStateWithLifecycle()
     val showShadow by viewModel.showShadowLibraries.collectAsStateWithLifecycle()
+    val regions by viewModel.regions.collectAsStateWithLifecycle()
     val addState by viewModel.add.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
     var removeTarget by remember { mutableStateOf<OpdsCatalog?>(null) }
@@ -128,9 +130,42 @@ fun BookSourcesScreen(
                 }
             }
 
+            SectionLabel("Languages & regions")
+            Text(
+                "Sources for books in other languages. The ones for your phone’s region and languages start on.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            HairlineCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Region.entries.forEach { region ->
+                        val on = region in regions
+                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(region.title, style = MaterialTheme.typography.titleMedium)
+                                Text(region.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(checked = on, onCheckedChange = { viewModel.setRegion(region, it) })
+                        }
+                        // A group's own built-in sources can still be switched one by one while the group is on.
+                        if (on) {
+                            SourceKind.entries.filter { Region.of(it) == region }.forEach { kind ->
+                                Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(kind.title(), style = MaterialTheme.typography.bodyLarge)
+                                        Text(kind.blurb(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Switch(checked = kind in enabled, onCheckedChange = { viewModel.setEnabled(kind, it) })
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             SectionLabel("Website shortcuts")
             Text(
-                "Shortcuts for ePustakalay and Global Grey appear below book results. " +
+                "Shortcuts for Global Grey and your languages’ sites appear below book results. " +
                     "Search inside PageDrop and capture supported book downloads; access varies.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

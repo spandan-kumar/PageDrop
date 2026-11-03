@@ -2,6 +2,7 @@ package app.pagedrop.discover
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.LocaleList
 import app.pagedrop.security.KeystoreSecretStore
 import app.pagedrop.security.SecretStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,6 +25,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.security.MessageDigest
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,12 +38,15 @@ class SourceSettings internal constructor(
     private val prefs: SharedPreferences,
     private val secrets: SecretStore,
     private val http: DiscoverHttp,
+    /** The phone's region and languages, in preference order; they pick which [Region]s start on. */
+    private val locales: List<Locale> = listOf(Locale.getDefault()),
 ) {
     @Inject
     constructor(@ApplicationContext ctx: Context) : this(
         ctx.getSharedPreferences("pagedrop_discover", Context.MODE_PRIVATE),
         KeystoreSecretStore(ctx.getSharedPreferences("pagedrop_discover_secrets", Context.MODE_PRIVATE), "pagedrop_opds_credentials"),
         OkHttpDiscoverHttp(),
+        LocaleList.getDefault().let { list -> List(list.size()) { list[it] } },
     )
 
     private val _enabledBuiltIns = MutableStateFlow(loadBuiltIns())
@@ -54,7 +59,25 @@ class SourceSettings internal constructor(
     /** Whether Anna's Archive and OceanofPDF website shortcuts are listed under search results. Off by default. */
     val showShadowLibraries: StateFlow<Boolean> = _showShadowLibraries.asStateFlow()
 
+    private val _regions = MutableStateFlow(loadRegions())
+    /** Language/region groups whose sources are searched and listed. Until changed, follows the phone's locales. */
+    val regions: StateFlow<Set<Region>> = _regions.asStateFlow()
+
     private val lock = Any()
+
+    fun setRegion(region: Region, on: Boolean) {
+        synchronized(lock) {
+            val next = if (on) _regions.value + region else _regions.value - region
+            prefs.edit().putStringSet(KEY_REGIONS, next.map { it.name }.toSet()).apply()
+            _regions.value = next
+        }
+    }
+
+    /** Built-in sources that are both switched on and, for regional ones, in a group that is on. */
+    fun activeBuiltIns(): Set<SourceKind> {
+        val regions = _regions.value
+        return _enabledBuiltIns.value.filter { kind -> Region.of(kind)?.let { it in regions } ?: true }.toSet()
+    }
 
     fun setShowShadowLibraries(on: Boolean) {
         prefs.edit().putBoolean(KEY_SHADOW_LIBRARIES, on).apply()
@@ -159,6 +182,11 @@ class SourceSettings internal constructor(
         return migrated
     }
 
+    private fun loadRegions(): Set<Region> {
+        val stored = prefs.getStringSet(KEY_REGIONS, null) ?: return Region.defaultsFor(locales)
+        return stored.mapNotNull { runCatching { Region.valueOf(it) }.getOrNull() }.toSet()
+    }
+
     private fun loadCatalogs(): List<OpdsCatalog> = try {
         val raw = prefs.getString(KEY_CATALOGS, null) ?: "[]"
         Json.parseToJsonElement(raw).jsonArray.mapNotNull { e ->
@@ -193,6 +221,7 @@ class SourceSettings internal constructor(
         private const val KEY_KNOWN_BUILTINS = "known_builtins"
         private const val KEY_CATALOGS = "catalogs"
         private const val KEY_SHADOW_LIBRARIES = "show_shadow_libraries"
+        private const val KEY_REGIONS = "regions"
         val DEFAULT_BUILTINS = SourceKind.entries.filter { it.isBuiltIn }.toSet()
 
         fun normalizeUrl(raw: String): String? {

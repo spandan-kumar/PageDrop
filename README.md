@@ -32,7 +32,7 @@ They still read fine. A jailbroken Kindle running KOReader is a fine reader for 
 
 ## What it does
 
-- **Find books in the app.** Search Project Gutenberg, Standard Ebooks, free Internet Archive items and your own OPDS catalogs, or browse other book websites in PageDrop's built-in browser and capture downloads right there. Brazilian open-access repositories (SciELO, Redalyc, BDTD, Portal Domínio Público, Biblioteca Brasiliana USP and Lume/UFRGS) appear as website shortcuts.
+- **Find books in the app.** Search Project Gutenberg, Standard Ebooks, free Internet Archive items and your own OPDS catalogs, or browse other book websites in PageDrop's built-in browser and capture downloads right there. Sources for other languages (Hindi and Urdu; Brazilian Portuguese open-access repositories) are grouped under Settings → Book sources → Languages & regions; the ones for your phone's region and languages start on.
 - **Send over Wi-Fi.** Books land in both the Kindle home screen (`/mnt/us/documents`) and KOReader's library (`/mnt/us/Books`).
 - **Make PDFs readable.** PDF reflow unwraps broken lines and strips running headers and page numbers, so a text PDF reads like a book on a small screen. It needs PDFs that contain text; it does not OCR scanned pages. Keep scans as PDF.
 - **Fix the details.** Title, author and cover are pulled from the file and open catalogs, then written into the book.
