@@ -157,4 +157,11 @@ class LibraryScanParsingTest {
         assertTrue(DeviceCommandRunner.LIBRARY_CHECK_SCRIPT.contains(DeviceCommandRunner.RESCAN_FALLBACK_SCRIPT))
         assertTrue(DeviceCommandRunner.RESCAN_FALLBACK_SCRIPT.contains("powerd.resuming"))
     }
+
+    @org.junit.Test
+    fun firmwarePlaceholdersAreDropped() {
+        org.junit.Assert.assertEquals("Kindle 5.6.1.1", cleanFirmwareVersion("Kindle 5.6.1.1 (~~otaVersion~~)\n"))
+        org.junit.Assert.assertEquals("Kindle 5.16.2.1.1 (4566540034)", cleanFirmwareVersion("Kindle 5.16.2.1.1 (4566540034)"))
+        org.junit.Assert.assertNull(cleanFirmwareVersion("  ~~otaVersion~~ "))
+    }
 }

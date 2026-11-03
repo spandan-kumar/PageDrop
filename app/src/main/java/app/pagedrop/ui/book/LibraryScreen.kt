@@ -10,16 +10,16 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -91,10 +91,10 @@ internal fun LibraryScreenContent(
     Box(modifier = modifier.fillMaxSize()) {
         // Background poster: full width at its own proportions, pinned to the bottom of the screen.
         // Printed in two tones so its white parts are exactly the screen colour (no "sticker" patches):
-        // white -> background, black -> ink. Dark mode prints black on the dark background.
+        // white -> background, black -> ink. Dark mode prints a faint light tone on the dark background.
         val background = MaterialTheme.colorScheme.background
-        // Light mode prints at about a third strength so book titles stay readable over it.
-        val ink = if (background.luminance() < 0.5f) Color.Black else lerp(background, MaterialTheme.colorScheme.onBackground, 0.32f)
+        // Light mode prints at about a third strength, dark mode fainter, so book titles stay readable over it.
+        val ink = lerp(background, MaterialTheme.colorScheme.onBackground, if (background.luminance() < 0.5f) 0.16f else 0.32f)
         Image(
             painter = painterResource(id = R.drawable.bezos_bg),
             contentDescription = null,
@@ -133,11 +133,8 @@ internal fun LibraryScreenContent(
                         onSend = actions.onSendSelected,
                         onDelete = actions.onDeleteSelected,
                     )
-                }
-            },
-            floatingActionButton = {
-                if (!selectionMode && !isEmptyLibrary && uiState is LibraryUiState.Success) {
-                    AddFab(onAddBook = actions.onAddBook, onOpenArticle = actions.onOpenArticle)
+                } else if (!isEmptyLibrary && uiState is LibraryUiState.Success) {
+                    AddBar(onAddBook = actions.onAddBook, onOpenArticle = actions.onOpenArticle)
                 }
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -233,7 +230,7 @@ internal fun LibraryScreenContent(
                             start = 16.dp,
                             end = 16.dp,
                             top = innerPadding.calculateTopPadding() + 4.dp,
-                            bottom = innerPadding.calculateBottomPadding() + 120.dp,
+                            bottom = innerPadding.calculateBottomPadding() + 16.dp,
                         )
                         when (viewMode) {
                             LibraryViewMode.List -> BookList(
@@ -262,29 +259,37 @@ internal fun LibraryScreenContent(
     }
 }
 
-/** Secondary "Add file" button with a small labelled "Send article from URL" action above it. */
+/** "Add file" and "Send article from URL" in a bar above the navigation, so they never cover book cards. */
 @Composable
-private fun AddFab(onAddBook: () -> Unit, onOpenArticle: () -> Unit) {
-    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        AssistChip(
-            onClick = onOpenArticle,
-            label = { Text("Send article from URL") },
-            leadingIcon = { Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp)) },
-            shape = MaterialTheme.shapes.extraSmall,
-            colors = AssistChipDefaults.assistChipColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            ),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        )
-        OutlinedButton(
-            onClick = onAddBook,
-            shape = MaterialTheme.shapes.small,
-            colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+private fun AddBar(onAddBook: () -> Unit, onOpenArticle: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Add file")
+            OutlinedButton(
+                onClick = onAddBook,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+            ) {
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Add file")
+            }
+            OutlinedButton(
+                onClick = onOpenArticle,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+            ) {
+                Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Send article", maxLines = 1)
+            }
         }
     }
 }
