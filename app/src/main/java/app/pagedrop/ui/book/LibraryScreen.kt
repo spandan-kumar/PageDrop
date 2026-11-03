@@ -1,5 +1,11 @@
 package app.pagedrop.ui.book
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import app.pagedrop.ui.components.posterBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material3.Surface
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
@@ -240,38 +245,30 @@ internal fun LibraryScreenContent(
     }
 }
 
-/** "Add file" and "Send article from URL" in a bar above the navigation, so they never cover book cards. */
+/** "Add file" and "Send article" as a slim strip above the navigation, so they never cover book cards. */
 @Composable
 private fun AddBar(onAddBook: () -> Unit, onOpenArticle: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(
-                onClick = onAddBook,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-            ) {
-                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Add file")
-            }
-            OutlinedButton(
-                onClick = onOpenArticle,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-            ) {
-                Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Send article", maxLines = 1)
-            }
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+            AddBarAction("Add file", Icons.Outlined.Add, onAddBook, Modifier.weight(1f))
+            VerticalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            AddBarAction("Send article", Icons.Outlined.Link, onOpenArticle, Modifier.weight(1f))
         }
+    }
+}
+
+@Composable
+private fun AddBarAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, modifier: Modifier) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 56.dp),
+        shape = androidx.compose.ui.graphics.RectangleShape,
+        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.titleSmall)
     }
 }
 
