@@ -57,7 +57,9 @@ class BookSearchEngine internal constructor(
         }
         val merged = mergeAndRank(q, outcomes.flatMap { it.results })
         return SearchResults(query, merged, outcomes.mapNotNull { it.error },
-            BookWebSearch.links(q, outcomes.filter { it.error != null }.map { it.source.kind }.toSet(), settings.showShadowLibraries.value, settings.regions.value),
+            BookWebSearch.links(q, outcomes.filter { it.error != null }.map { it.source.kind }.toSet(), settings.showShadowLibraries.value,
+                // Every group's shortcuts; FindScreen hides those of groups that are off, so switching one on shows them at once.
+                Region.entries.toSet()),
             outcomes.mapNotNull { it.menu })
     }
 
