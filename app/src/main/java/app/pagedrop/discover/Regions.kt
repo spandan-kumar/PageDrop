@@ -18,7 +18,7 @@ enum class Region(
 ) {
     INDIA(
         "India · Hindi & Urdu",
-        "Digital Library of India, Hindi Wikisource, Hindwi, Rekhta and ePustakalay",
+        "Hindwi, Rekhta, Hindi Wikisource and more",
         countries = setOf("IN"),
         languages = setOf("hi", "ur"),
         sources = setOf(SourceKind.DIGITAL_LIBRARY_INDIA, SourceKind.HINDI_WIKISOURCE, SourceKind.HINDWI, SourceKind.REKHTA),
@@ -26,7 +26,7 @@ enum class Region(
     ),
     BRAZIL(
         "Brazil · Portuguese",
-        "Open-access repositories: SciELO, Redalyc, BDTD, Domínio Público, Brasiliana USP and Lume",
+        "SciELO, Domínio Público and more",
         countries = setOf("BR"),
         languages = setOf("pt"),
         shortcuts = setOf("SciELO Brasil", "Redalyc", "BDTD", "Portal Domínio Público", "Biblioteca Brasiliana USP", "Lume (UFRGS)"),

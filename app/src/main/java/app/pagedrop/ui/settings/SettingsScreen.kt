@@ -1,5 +1,7 @@
 package app.pagedrop.ui.settings
 
+import androidx.compose.ui.graphics.Color
+import app.pagedrop.ui.components.posterBackground
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -72,7 +74,7 @@ fun SettingsScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (BuildConfig.SELF_UPDATE) viewModel.onResumed() }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.posterBackground(),
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
@@ -80,12 +82,12 @@ fun SettingsScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Column(
             Modifier
@@ -113,7 +115,7 @@ fun SettingsScreen(
             HairlineCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(vertical = 8.dp, horizontal = 16.dp).selectableGroup()) {
                     Text(
-                        "Applies to EPUB, PDF and text files. Kindle formats are always sent as is.",
+                        "For EPUB, PDF and text files. Kindle formats are always sent as is.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
@@ -128,7 +130,7 @@ fun SettingsScreen(
                         selected = sendFormat == SendFormatSetting.KEEP_ORIGINAL,
                         onClick = { viewModel.updateSendFormat(SendFormatSetting.KEEP_ORIGINAL) },
                         title = "Keep the original format",
-                        note = "Sent exactly as added. Formats the Kindle’s own reader can’t open go to KOReader only.",
+                        note = "Sent as added. Formats the Kindle can’t open go to KOReader only.",
                     )
                 }
             }
@@ -136,7 +138,7 @@ fun SettingsScreen(
             SectionLabel("Find a book")
             NavRow(
                 title = "Book sources",
-                subtitle = "Free libraries and your own OPDS catalogs",
+                subtitle = "Libraries, languages and your own catalogs",
                 icon = Icons.Default.Search,
                 onClick = onOpenBookSources
             )
@@ -145,10 +147,9 @@ fun SettingsScreen(
             HairlineCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Use Google Books for book details", style = MaterialTheme.typography.bodyMedium)
+                        Text("Use Google Books", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            "Titles, authors and covers come from Open Library. Google Books adds more matches; " +
-                                "when on, a book's title and author (or ISBN) are also sent to Google.",
+                            "Finds more titles, authors and covers. Sends the book's title and author (or ISBN) to Google.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -166,8 +167,7 @@ fun SettingsScreen(
                         label = { Text("Extra folders on the Kindle") },
                         supportingText = {
                             Text(
-                                "Books always go to your Kindle home screen and KOReader's Books folder. " +
-                                    "Add extra folders here, one per line."
+                                "Books always go to the home screen and KOReader. Add more folders, one per line."
                             )
                         },
                         minLines = 2,
@@ -195,7 +195,7 @@ fun SettingsScreen(
             HairlineCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "Optional. Used for heavy conversions and article formatting; otherwise books are converted on this phone.",
+                        "Handles heavy conversions and articles. Otherwise everything is converted on this phone.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -216,7 +216,7 @@ fun SettingsScreen(
                         }
                         if (!state.useServer) {
                             Text(
-                                "Off: everything is converted on this phone and nothing is sent to the server.",
+                                "Off: nothing is sent to the server.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -251,7 +251,7 @@ fun SettingsScreen(
                             Column(Modifier.weight(1f)) {
                                 Text("Update automatically", style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    "Checks GitHub once a day and installs new versions over Wi-Fi.",
+                                    "Checks GitHub daily and installs updates over Wi-Fi.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

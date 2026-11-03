@@ -84,7 +84,8 @@ fun MainShell(
                     onNavigateToScreensaver = onOpenScreensaver,
                     onNavigateToFonts = onOpenFonts,
                     onNavigateToDictionaries = onOpenDictionaries,
-                    onNavigateToArticles = onOpenArticle
+                    onNavigateToArticles = onOpenArticle,
+                    onOpenSettings = onOpenSettings,
                 )
             }
         }

@@ -1,5 +1,7 @@
 package app.pagedrop.ui.kindle
 
+import app.pagedrop.ui.components.SettingsButton
+import app.pagedrop.ui.components.posterBackground
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.graphics.Color
@@ -106,12 +108,12 @@ fun KindleScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.posterBackground(),
         topBar = {
             TopAppBar(
                 title = { Text("Kindle") },
                 actions = {
-                    IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, "Settings") }
+                    SettingsButton(onOpenSettings)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -131,7 +133,7 @@ fun KindleScreen(
                 )
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Column(
             Modifier

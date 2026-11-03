@@ -1,6 +1,6 @@
 package app.pagedrop.ui.book
 
-import androidx.compose.foundation.Image
+import app.pagedrop.ui.components.posterBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,13 +33,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import app.pagedrop.R
 import app.pagedrop.data.local.database.Book
@@ -88,22 +84,7 @@ internal fun LibraryScreenContent(
     val visibleCount = books.count(filter::matches)
     val isEmptyLibrary = uiState is LibraryUiState.Success && books.isEmpty()
 
-    Box(modifier = modifier.fillMaxSize()) {
-        // Background poster: full width at its own proportions, pinned to the bottom of the screen.
-        // Printed in two tones so its white parts are exactly the screen colour (no "sticker" patches):
-        // white -> background, black -> ink. Dark mode prints a faint light tone on the dark background.
-        val background = MaterialTheme.colorScheme.background
-        // Light mode prints at about a third strength, dark mode fainter, so book titles stay readable over it.
-        val ink = lerp(background, MaterialTheme.colorScheme.onBackground, if (background.luminance() < 0.5f) 0.16f else 0.32f)
-        Image(
-            painter = painterResource(id = R.drawable.bezos_bg),
-            contentDescription = null,
-            modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
-            contentScale = ContentScale.FillWidth,
-            alignment = Alignment.BottomCenter,
-            colorFilter = remember(background, ink) { posterDuotone(paper = background, ink = ink) },
-        )
-
+    Box(modifier = modifier.fillMaxSize().posterBackground()) {
         // Pinned bar: transparent at rest, solid with a hairline once the list or grid scrolls under it.
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
         Scaffold(

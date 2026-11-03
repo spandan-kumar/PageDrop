@@ -1,5 +1,6 @@
 package app.pagedrop.ui.book
 
+import app.pagedrop.ui.components.SettingsButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -72,9 +73,7 @@ internal fun LibraryTopBar(onOpenSettings: () -> Unit, scrollBehavior: TopAppBar
         scrollBehavior = scrollBehavior,
         title = { Text("PageDrop", style = MaterialTheme.typography.titleLarge) },
         actions = {
-            IconButton(onClick = onOpenSettings) {
-                Icon(Icons.Outlined.Settings, contentDescription = "Settings")
-            }
+            SettingsButton(onOpenSettings)
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent,
@@ -188,7 +187,7 @@ internal fun SearchEntryField(onClick: () -> Unit, modifier: Modifier = Modifier
         ) {
             Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                "Search for a book…",
+                "Search for a book to download…",
                 style = MaterialTheme.typography.bodyLarge.copy(fontFamily = BookSerif),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

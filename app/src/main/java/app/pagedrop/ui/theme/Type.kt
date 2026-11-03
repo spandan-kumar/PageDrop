@@ -32,7 +32,6 @@ val BookSerif = FontFamily(
 )
 
 private val Serif = BookSerif
-private val Sans = FontFamily.Default
 
 private fun serif(size: Int, line: Int, weight: FontWeight = FontWeight.Normal, italic: Boolean = false) = TextStyle(
     fontFamily = Serif,
@@ -42,15 +41,15 @@ private fun serif(size: Int, line: Int, weight: FontWeight = FontWeight.Normal, 
     lineHeight = line.sp,
 )
 
-private fun sans(size: Int, line: Int, weight: FontWeight = FontWeight.Medium, spacing: Double = 0.4) = TextStyle(
-    fontFamily = Sans,
+private fun label(size: Int, line: Int, weight: FontWeight = FontWeight.Medium, spacing: Double = 0.4) = TextStyle(
+    fontFamily = Serif,
     fontWeight = weight,
     fontSize = size.sp,
     lineHeight = line.sp,
     letterSpacing = spacing.sp,
 )
 
-// Serif for headings, titles and reading text; plain sans only for small UI labels.
+// One typeface everywhere: Literata for headings, reading text and UI labels alike.
 val Typography = Typography(
     displayLarge = serif(57, 64),
     displayMedium = serif(45, 52),
@@ -64,7 +63,7 @@ val Typography = Typography(
     bodyLarge = serif(16, 24),
     bodyMedium = serif(14, 20),
     bodySmall = serif(12, 16),
-    labelLarge = sans(14, 20),
-    labelMedium = sans(12, 16),
-    labelSmall = sans(11, 16, spacing = 0.5),
+    labelLarge = label(14, 20),
+    labelMedium = label(12, 16),
+    labelSmall = label(11, 16, spacing = 0.5),
 )

@@ -1,5 +1,8 @@
 package app.pagedrop.ui.tools
 
+import app.pagedrop.ui.components.SettingsButton
+import androidx.compose.ui.graphics.Color
+import app.pagedrop.ui.components.posterBackground
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,20 +33,22 @@ fun ExtrasScreen(
     onNavigateToScreensaver: () -> Unit = {},
     onNavigateToFonts: () -> Unit = {},
     onNavigateToDictionaries: () -> Unit = {},
-    onNavigateToArticles: () -> Unit = {}
+    onNavigateToArticles: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.posterBackground(),
         topBar = {
             TopAppBar(
                 title = { Text("Extras") },
+                actions = { SettingsButton(onOpenSettings) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Column(
             modifier = Modifier
