@@ -1,0 +1,6 @@
+- Languages & regions: Hindi/Urdu and new Brazilian open-access sources (thanks @Wennington123) switch on per region; yours start on
+- Same look on every screen: background poster, one typeface, shorter settings text
+- Add file and Send article no longer cover your books
+- No more "Hindwi unavailable" on searches with no Hindi match
+- "Send again" only after a book was really sent
+- Kindle firmware shows without placeholder text
