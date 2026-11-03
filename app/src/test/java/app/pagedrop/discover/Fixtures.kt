@@ -49,8 +49,9 @@ internal fun tempDir(prefix: String = "pagedrop-test"): File =
     java.nio.file.Files.createTempDirectory(prefix).toFile().also { it.deleteOnExit() }
 
 internal fun newSettings(http: DiscoverHttp = FakeHttp(), secrets: SecretStore = MemorySecrets(), allSources: Boolean = false): SourceSettings =
-    SourceSettings(app.pagedrop.data.NullSharedPreferences(), secrets, http).apply {
+    SourceSettings(app.pagedrop.data.NullSharedPreferences(), secrets, http, locales = emptyList()).apply {
         // Existing fixtures cover the original three catalogs; new-source tests opt into the full registry.
+        if (allSources) Region.entries.forEach { setRegion(it, true) }
         if (!allSources) SourceKind.entries.filter { it !in setOf(SourceKind.GUTENBERG, SourceKind.STANDARD_EBOOKS, SourceKind.INTERNET_ARCHIVE, SourceKind.OPDS) }
             .forEach { setEnabled(it, false) }
     }

@@ -35,7 +35,7 @@ The server is open source and lives in [`server/`](../server/). You can run your
 
 ### Book sources (when you search or download)
 
-Your search words go to each built-in source you have switched on in Settings → Book sources (all are on by default), and to any OPDS catalog you add. Downloads come straight from the source.
+Your search words go to each built-in source you have switched on in Settings → Book sources (all are on by default, except that sources in Languages & regions are searched only while their group is on; groups matching your phone's region or languages start on), and to any OPDS catalog you add. Downloads come straight from the source.
 
 - Project Gutenberg: `gutendex.com` for search, `gutenberg.org` for details and downloads
 - Standard Ebooks: `standardebooks.org`
@@ -75,7 +75,7 @@ The "Get your Kindle ready" walkthrough opens pages on [kindlemodding.org](https
 
 Search results can show website shortcuts. They do nothing until you tap one. Then the site opens in PageDrop's built-in browser, which is a WebView with JavaScript switched on, and the site sees you as any browser would.
 
-- Global Grey (through a Google search, so `google.com` sees the query), ePustakalay, and, when a built-in source above can't be searched, its website (for example ManyBooks, Faded Page, Hindwi or Rekhta)
+- Global Grey (through a Google search, so `google.com` sees the query), ePustakalay (only while India · Hindi & Urdu is on), the Brazilian open-access repositories (SciELO Brasil, Redalyc, BDTD, Portal Domínio Público, Biblioteca Brasiliana USP and Lume/UFRGS; only while Brazil · Portuguese is on), and, when a built-in source above can't be searched, its website (for example ManyBooks, Faded Page, Hindwi or Rekhta)
 - Anna's Archive and OceanofPDF, only if you switch on "Show shadow-library search shortcuts" in Settings → Book sources (off by default)
 
 Cookies from the sites you visit are stored in the app's browser. When you download a book from a site you are browsing, PageDrop sends that site's cookies with the download request to the same site. Clearing PageDrop's app data (Android Settings → Apps → PageDrop → Storage) removes them.

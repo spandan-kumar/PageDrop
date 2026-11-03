@@ -71,7 +71,7 @@ class IndianSourcesTest {
     @Test fun languageAliasesAndWebsiteQueriesAreNormalized() {
         assertEquals("hi", TextUtil.shortLanguage("Hindi"))
         assertEquals("ur", TextUtil.shortLanguage("urd"))
-        val url = BookWebSearch.links(" गुनाहों का देवता & author ").first().url
+        val url = BookWebSearch.links(" गुनाहों का देवता & author ", regions = setOf(Region.INDIA)).first().url
         assertTrue(url.endsWith("&+author").not())
         assertTrue(url.contains("%26"))
         assertTrue(BookWebSearch.links("  ").isEmpty())

@@ -92,7 +92,7 @@ class EngineBookFinder @Inject constructor(
     override suspend fun resolve(result: BookResult) = engine.resolve(result)
     override fun bestOption(result: BookResult) = engine.bestOption(result)
     override fun hasEnabledSources(): Boolean =
-        settings.enabledBuiltIns.value.isNotEmpty() || settings.catalogs.value.any { it.enabled }
+        settings.activeBuiltIns().isNotEmpty() || settings.catalogs.value.any { it.enabled }
 }
 
 class DownloaderBookFetcher @Inject constructor(private val downloader: BookDownloader) : BookFetcher {

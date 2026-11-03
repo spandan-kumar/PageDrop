@@ -53,7 +53,7 @@ class ArticleConsentWiringTest {
     fun shadowShortcutsAreHiddenAtRenderTimeWhenToggledOff() {
         val links = BookWebSearch.links("dune", includeShadowLibraries = true)
         val off = BookWebSearch.visibleLinks(links, showShadowLibraries = false).map(BookSearchLink::sourceName)
-        assertEquals(listOf("ePustakalay", "Global Grey"), off)
+        assertEquals(listOf("Global Grey"), off)
         assertEquals(links, BookWebSearch.visibleLinks(links, showShadowLibraries = true))
     }
 }

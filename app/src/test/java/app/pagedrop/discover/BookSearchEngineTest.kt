@@ -155,7 +155,9 @@ class BookSearchEngineTest {
         assertTrue(res.results.any { it.source == SourceKind.OPEN_LIBRARY })
         assertEquals(1, res.results.count { it.archiveIdentifier == "hindi-edition" })
         assertTrue(http.requests.any { it.first.contains("collection%3Adigitallibraryindia") })
-        assertEquals(listOf("ePustakalay", "Global Grey"), res.websiteSearches.map { it.sourceName })
+        assertTrue(res.websiteSearches.map { it.sourceName }.containsAll(
+            listOf("ePustakalay", "Global Grey", "SciELO Brasil", "Redalyc", "BDTD", "Portal Domínio Público", "Biblioteca Brasiliana USP", "Lume (UFRGS)")
+        ))
     }
 
     @Test

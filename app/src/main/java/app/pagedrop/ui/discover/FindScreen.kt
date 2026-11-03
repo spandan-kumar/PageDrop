@@ -84,6 +84,7 @@ fun FindScreen(
     sourcesViewModel: app.pagedrop.ui.settings.BookSourcesViewModel = hiltViewModel(),
 ) {
     val showShadow by sourcesViewModel.showShadowLibraries.collectAsStateWithLifecycle()
+    val regions by sourcesViewModel.regions.collectAsStateWithLifecycle()
     val search by viewModel.search.collectAsStateWithLifecycle()
     val recent by viewModel.recent.collectAsStateWithLifecycle()
     val catalogs by viewModel.catalogs.collectAsStateWithLifecycle()
@@ -213,7 +214,7 @@ fun FindScreen(
                     }
                 }
                 val websiteSearches = results?.let {
-                    app.pagedrop.discover.BookWebSearch.visibleLinks(it.websiteSearches, showShadow)
+                    app.pagedrop.discover.BookWebSearch.visibleLinks(it.websiteSearches, showShadow, regions)
                 }.orEmpty()
                 if (results != null && !search.searching && websiteSearches.isNotEmpty()) {
                     item {
@@ -229,6 +230,9 @@ fun FindScreen(
                             }
                         }
                     }
+                }
+                if (results != null && !search.searching && regions.size < app.pagedrop.discover.Region.entries.size) {
+                    item { LanguagesHint(onOpenSources) }
                 }
             }
         }
@@ -285,6 +289,20 @@ private fun SourceErrorChips(errors: List<SourceError>) {
             TagChip(if (e.offline) "${e.sourceName} unavailable (offline)" else "${e.sourceName} unavailable")
             Text(e.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+/** Points to Settings -> Book sources for books in other languages, while some language/region groups are off. */
+@Composable
+private fun LanguagesHint(onOpenSources: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "Looking for books in another language? Turn on more sources in Languages & regions.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onOpenSources) { Text("Book sources") }
     }
 }
 

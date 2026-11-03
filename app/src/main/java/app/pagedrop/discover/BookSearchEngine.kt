@@ -57,7 +57,9 @@ class BookSearchEngine internal constructor(
         }
         val merged = mergeAndRank(q, outcomes.flatMap { it.results })
         return SearchResults(query, merged, outcomes.mapNotNull { it.error },
-            BookWebSearch.links(q, outcomes.filter { it.error != null }.map { it.source.kind }.toSet(), settings.showShadowLibraries.value),
+            BookWebSearch.links(q, outcomes.filter { it.error != null }.map { it.source.kind }.toSet(), settings.showShadowLibraries.value,
+                // Every group's shortcuts; FindScreen hides those of groups that are off, so switching one on shows them at once.
+                Region.entries.toSet()),
             outcomes.mapNotNull { it.menu })
     }
 
@@ -124,7 +126,7 @@ class BookSearchEngine internal constructor(
     fun bestOption(result: BookResult): DownloadOption? = Ranking.bestOption(result.options)
 
     private fun buildSources(): List<BookSource> {
-        val enabled = settings.enabledBuiltIns.value
+        val enabled = settings.activeBuiltIns()
         val sourceHttp = http.withTimeout(sourceTimeoutMs)
         val list = mutableListOf<BookSource>()
         if (SourceKind.STANDARD_EBOOKS in enabled) list += StandardEbooksSource(sourceHttp)
